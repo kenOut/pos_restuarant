@@ -1,0 +1,146 @@
+@import "tailwindcss";
+
+/*
+ * ENYO POS design tokens, taken from the product deck.
+ * The till runs dark; marketing sections also use the cream "paper" surface.
+ */
+@theme {
+  --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-bricolage), var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+
+  /* Dark surfaces */
+  --color-ink-950: #100e0b;
+  --color-ink-900: #15130f;
+  --color-ink-850: #1b1814;
+  --color-ink-800: #211e19;
+  --color-ink-700: #2c2822;
+  --color-ink-600: #3a352e;
+
+  /* Text on dark */
+  --color-cream: #f4efe6;
+  --color-cream-muted: #b5ad9f;
+  --color-cream-faint: #a29b8e; /* 4.5:1 or better on every dark surface, amber-soft and eating-soft included */
+
+  /* Light "paper" surfaces */
+  --color-paper: #f5f0e8;
+  --color-paper-ink: #1a1712;
+  --color-paper-muted: #5f584d;
+  --color-paper-line: #e6dfd3;
+
+  /* Brand accent */
+  --color-amber: #f0a93b;
+  --color-amber-strong: #9a5c08; /* amber text on the light paper sections: 4.7:1 on paper, 5.4:1 on white */
+  --color-amber-soft: #3a2c16;
+  --color-amber-ink: #1a1307;
+
+  /* Status colours (floor plan, kitchen timers) */
+  --color-eating: #2f8f78;
+  --color-eating-soft: #163a32;
+  --color-reserved: #5b7fc0;
+  --color-reserved-soft: #1c2840;
+  --color-alert: #e8735a;
+  --color-alert-soft: #3d1f18;
+  --color-late: #e5484d;
+
+  --radius-card: 0.875rem;
+
+  --text-2xs: 0.625rem;
+  --text-2xs--line-height: 1.4;
+
+  /* Till micro-feedback: quantity badge pop and new ticket line slide-in. */
+  --animate-pop: pop 0.25s ease-out;
+  --animate-line-in: line-in 0.25s ease-out;
+
+  @keyframes pop {
+    0% { transform: scale(0.4); }
+    60% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+  }
+
+  @keyframes line-in {
+    from { opacity: 0; transform: translateY(-6px); background-color: rgb(240 169 59 / 0.18); }
+    to { opacity: 1; transform: none; background-color: transparent; }
+  }
+}
+
+@layer components {
+  /*
+   * Device mockups are drawn on an em grid. `.mock` is the size container;
+   * `.mock-canvas` sets 1em = container width / --mock-width, and rescales
+   * Tailwind's spacing, text and radius scales to em so the whole screen
+   * shrinks evenly with its container.
+   */
+  .mock {
+    container-type: inline-size;
+  }
+
+  .mock-canvas {
+    font-size: calc(100cqw / var(--mock-width, 64));
+    line-height: 1.3;
+    --spacing: 0.25em;
+    --text-2xs: 0.56em;
+    --text-xs: 0.68em;
+    --text-sm: 0.8em;
+    --text-base: 0.92em;
+    --text-lg: 1.1em;
+    --text-xl: 1.3em;
+    --text-2xl: 1.6em;
+    --radius-sm: 0.25em;
+    --radius-md: 0.4em;
+    --radius-lg: 0.55em;
+    --radius-xl: 0.75em;
+    --radius-2xl: 1em;
+    --radius-3xl: 1.5em;
+  }
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    background-color: var(--color-ink-900);
+    color: var(--color-cream);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-amber);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: var(--color-amber);
+    color: var(--color-amber-ink);
+  }
+}
+
+/* Receipts: 80 mm roll, no margins, black on white. */
+@media print {
+  @page {
+    size: 80mm auto;
+    margin: 0;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    color: #000;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
