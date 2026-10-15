@@ -13,7 +13,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const SUITES = ["landing", "login", "shell", "order", "kitchen", "payments", "a11y"];
+const SUITES = ["landing", "login", "shell", "order", "kitchen", "payments", "admin", "setup", "a11y"];
+/** Extra environment for particular suites: setup needs an empty database. */
+const SUITE_ENV = { setup: { ENYO_SEED_DEMO: "0" } };
 const OUT = path.join(ROOT, "e2e", "output");
 
 const args = process.argv.slice(2);
@@ -110,7 +112,7 @@ for (const suite of suites) {
   console.log(`\n=== ${suite} (${base})`);
   const server = spawn(process.execPath, [path.join(ROOT, "node_modules", "next", "dist", "bin", "next"), "start", "-p", String(port)], {
     cwd: ROOT,
-    env: { ...process.env, DATABASE_PATH: dbPath, ENYO_SEED_DEMO: "1", NEXT_TELEMETRY_DISABLED: "1" },
+    env: { ...process.env, DATABASE_PATH: dbPath, ENYO_SEED_DEMO: "1", NEXT_TELEMETRY_DISABLED: "1", ...SUITE_ENV[suite] },
     stdio: ["ignore", "pipe", "pipe"],
     detached: process.platform !== "win32",
   });
@@ -119,7 +121,7 @@ for (const suite of suites) {
 
   let status;
   try {
-    await waitForServer(`${base}/login`, server);
+    await waitForServer(`${base}/`, server);
     status = spawnSync(process.execPath, [path.join(ROOT, "e2e", `${suite}.cjs`), base, OUT, dbPath], { cwd: ROOT, stdio: "inherit" }).status;
   } catch (error) {
     console.error(`Couldn't start the server: ${error.message}\n${log.join("")}`);

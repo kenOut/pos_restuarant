@@ -4,7 +4,9 @@ import { PrintControls } from "@/components/pay/print-controls";
 import { requireStaff } from "@/lib/auth/session";
 import { getDb } from "@/db";
 import { describePayment } from "@/lib/payments/labels";
+import { taxLinesForDisplay } from "@/lib/payments/bill";
 import { getPaymentView } from "@/lib/payments/service";
+import { logoUrl } from "@/lib/settings/service";
 import { ORDER_TYPE_LABELS } from "@/lib/orders/shared";
 import { formatAmount, formatCedis } from "@/lib/money";
 
@@ -39,6 +41,10 @@ export default async function ReceiptPage({
         className="mx-auto mt-4 w-[80mm] max-w-full bg-white px-4 py-5 font-mono text-[12px] leading-snug text-black shadow-xl print:mt-0 print:w-full print:shadow-none"
       >
         <header className="text-center">
+          {view.logoFile ? (
+            // eslint-disable-next-line @next/next/no-img-element -- printed receipt logo from our own route
+            <img src={logoUrl(view.logoFile)!} alt="" className="mx-auto mb-1 h-14 w-auto object-contain grayscale" />
+          ) : null}
           <p className="text-[15px] font-bold">{view.restaurantName}</p>
           <p className="mt-1 font-bold">{paid ? "RECEIPT" : "BILL"}</p>
           <p>
@@ -72,8 +78,9 @@ export default async function ReceiptPage({
             <span>-{formatAmount(bill.discount)}</span>
           </p>
         ) : null}
-        {bill.taxes.map((t) => (
-          <p key={t.id} className={row}>
+        {bill.pricesIncludeTax && bill.taxes.length ? <p>Prices include:</p> : null}
+        {taxLinesForDisplay(bill.taxes).map((t) => (
+          <p key={t.label} className={`${row} ${bill.pricesIncludeTax ? "pl-4" : ""}`}>
             <span>{t.label}</span>
             <span>{formatAmount(t.amount)}</span>
           </p>
@@ -113,7 +120,7 @@ export default async function ReceiptPage({
           </>
         ) : null}
         {rule}
-        <p className="text-center">Thank you for dining with us.</p>
+        {view.receiptFooter ? <p className="text-center">{view.receiptFooter}</p> : null}
       </article>
     </main>
   );

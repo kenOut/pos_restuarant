@@ -46,13 +46,13 @@ const NAV: readonly NavDefinition[] = [
   { id: "kitchen", label: "Kitchen", icon: "kitchen", roles: EVERYONE, href: "/kitchen" },
   { id: "orders", label: "Orders", icon: "orders", roles: FRONT_OF_HOUSE },
   { id: "bookings", label: "Bookings", icon: "bookings", roles: ["owner", "manager", "cashier", "server"] },
-  { id: "menu", label: "Menu", icon: "menu", roles: MANAGEMENT },
+  { id: "menu", label: "Menu", icon: "menu", roles: MANAGEMENT, href: "/menu" },
   { id: "stock", label: "Stock", icon: "stock", roles: MANAGEMENT },
-  { id: "staff", label: "Staff", icon: "staff", roles: MANAGEMENT },
+  { id: "staff", label: "Staff", icon: "staff", roles: MANAGEMENT, href: "/staff" },
   { id: "guests", label: "Guests", icon: "guests", roles: ["owner", "manager", "cashier", "server"] },
   { id: "reports", label: "Reports", icon: "reports", roles: MANAGEMENT },
   { id: "reviews", label: "Reviews", icon: "reviews", roles: MANAGEMENT },
-  { id: "settings", label: "Settings", icon: "settings", roles: MANAGEMENT },
+  { id: "settings", label: "Settings", icon: "settings", roles: MANAGEMENT, href: "/settings" },
 ];
 
 export type NavItem = { id: NavId; label: string; icon: IconName; href: string | null };
@@ -67,7 +67,7 @@ export function navFor(role: StaffRole): NavItem[] {
   }));
 }
 
-export type TillArea = Extract<NavId, "order" | "kitchen">;
+export type TillArea = Extract<NavId, "order" | "kitchen" | "menu" | "staff" | "settings">;
 
 export function canAccess(role: StaffRole, area: TillArea): boolean {
   return NAV.some((n) => n.id === area && n.roles.includes(role));

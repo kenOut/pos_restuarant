@@ -4,11 +4,14 @@ import { useId, useState } from "react";
 import { Icon } from "@/components/icons";
 import { ORDER_TYPES, type OrderType } from "@/db/enums";
 import { draftTotals, unsentCount, type Draft } from "@/lib/orders/draft";
+import { taxLinesForDisplay } from "@/lib/payments/bill";
+import type { TaxConfig } from "@/lib/tax-config";
 import { LABEL_MAX, NOTE_MAX, ORDER_TYPE_LABELS, QUICK_NOTES } from "@/lib/orders/shared";
 import { formatAmount, formatCedis } from "@/lib/money";
 
 type Props = {
   draft: Draft;
+  taxConfig: TaxConfig;
   staffName: string;
   pending: boolean;
   error: string | null;
@@ -38,7 +41,7 @@ export function TicketPanel(props: Props) {
   const { draft, staffName, pending, error, className = "" } = props;
   const [noteFor, setNoteFor] = useState<string | null>(null);
   const fieldId = useId();
-  const totals = draftTotals(draft);
+  const totals = draftTotals(draft, props.taxConfig);
   const toSend = unsentCount(draft);
   const hasItems = draft.sent.length + draft.lines.length > 0;
   const detail = DETAIL_FIELD[draft.type];
@@ -201,8 +204,9 @@ export function TicketPanel(props: Props) {
             <dt>Subtotal</dt>
             <dd className="tabular-nums">{formatCedis(totals.subtotal)}</dd>
           </div>
-          {totals.taxes.map((tax) => (
-            <div key={tax.id} className="flex justify-between">
+          {totals.pricesIncludeTax && totals.taxes.length ? <div className="pt-0.5 text-xs">Prices include:</div> : null}
+          {taxLinesForDisplay(totals.taxes).map((tax) => (
+            <div key={tax.label} className={`flex justify-between ${totals.pricesIncludeTax ? "pl-3" : ""}`}>
               <dt>{tax.label}</dt>
               <dd className="tabular-nums">{formatCedis(tax.amount)}</dd>
             </div>

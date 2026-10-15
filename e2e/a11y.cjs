@@ -43,7 +43,11 @@ async function audit(page, name, { targets = true } = {}) {
         const r = el.getBoundingClientRect();
         const s = getComputedStyle(el);
         if (!r.width || !r.height || s.visibility === "hidden" || el.closest(".sr-only")) return false;
-        return r.width < min - 0.5 || r.height < min - 0.5;
+        const small = (rect) => rect.width < min - 0.5 || rect.height < min - 0.5;
+        if (!small(r)) return false;
+        // A checkbox or radio inside (or pointed at by) a big enough label is fine: the label is the target.
+        const label = el.closest("label") ?? (el.id ? document.querySelector(`label[for="${CSS.escape(el.id)}"]`) : null);
+        return !(label && !small(label.getBoundingClientRect()));
       })
       .map((el) => {
         const r = el.getBoundingClientRect();
@@ -151,6 +155,33 @@ const tapDish = (page, name) =>
   await till.waitForFunction(() => location.pathname.startsWith("/receipt/"), { timeout: 10000 });
   await sleep(500);
   await audit(till, "Receipt");
+
+  // Management screens (Phase 8)
+  const manager = await device(browser, desktop);
+  await signIn(manager, "Kwame B.", "2222", "/order");
+  await click(manager, "Mark sold out");
+  await sleep(200);
+  await audit(manager, "Order screen, sold-out mode");
+  await manager.goto(`${BASE}/menu`, { waitUntil: "load" });
+  await sleep(500);
+  await audit(manager, "Menu");
+  await click(manager, "+ Add dish");
+  await sleep(300);
+  await audit(manager, "Add dish dialog");
+  await manager.goto(`${BASE}/staff`, { waitUntil: "load" });
+  await sleep(500);
+  await audit(manager, "Staff");
+  await click(manager, "+ Add staff");
+  await sleep(300);
+  await audit(manager, "Add staff dialog");
+  await manager.goto(`${BASE}/settings`, { waitUntil: "load" });
+  await sleep(500);
+  await audit(manager, "Settings (manager, taxes read-only)");
+  const owner = await device(browser, desktop);
+  await signIn(owner, "Ama Owner", "1111", "/order");
+  await owner.goto(`${BASE}/settings`, { waitUntil: "load" });
+  await sleep(500);
+  await audit(owner, "Settings (owner)");
 
   // Phone: ticket open full screen, then the More sheet
   const phone = await device(browser, phoneSize);

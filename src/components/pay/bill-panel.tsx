@@ -1,3 +1,4 @@
+import { taxLinesForDisplay } from "@/lib/payments/bill";
 import { describePayment } from "@/lib/payments/labels";
 import type { PaymentView } from "@/lib/payments/service";
 import { formatAmount, formatCedis } from "@/lib/money";
@@ -44,8 +45,9 @@ export function BillPanel({ view, className = "" }: { view: PaymentView; classNa
               <dd className="whitespace-nowrap tabular-nums">−{formatCedis(bill.discount)}</dd>
             </div>
           ) : null}
-          {bill.taxes.map((t) => (
-            <div key={t.id} className={row}>
+          {bill.pricesIncludeTax && bill.taxes.length ? <div className="pt-0.5 text-xs">Prices include:</div> : null}
+          {taxLinesForDisplay(bill.taxes).map((t) => (
+            <div key={t.label} className={`${row} ${bill.pricesIncludeTax ? "pl-3" : ""}`}>
               <dt>{t.label}</dt>
               <dd className="whitespace-nowrap tabular-nums">{formatCedis(t.amount)}</dd>
             </div>

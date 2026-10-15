@@ -28,7 +28,8 @@ export default async function PayPage({ params }: { params: Promise<{ orderId: s
     <PayScreen
       view={view}
       cashierName={person.name}
-      canApproveDiscounts={person.role === "owner" || person.role === "manager"}
+      // No PIN needed if they're an owner or manager, or the restaurant has switched approval off.
+      canApproveDiscounts={person.role === "owner" || person.role === "manager" || !view.discountNeedsApproval}
       approvers={approvers}
     />
   );

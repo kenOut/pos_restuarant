@@ -45,7 +45,7 @@ const noOverflow = (page) => page.evaluate(() => document.documentElement.scroll
   let nav = await visibleNav(desk);
   check("desktop shows the left rail", nav?.rail === true);
   check("manager sees all 13 sections", nav && nav.links.length + nav.disabled.length === 13, nav && `${nav.links.length} links + ${nav.disabled.length} coming later`);
-  check("only Order and Kitchen are links", JSON.stringify(nav?.links.map((l) => l.text)) === JSON.stringify(["Order", "Kitchen"]), nav?.links.map((l) => l.text).join(","));
+  check("built screens are links: Order, Kitchen, Menu, Staff, Settings", JSON.stringify(nav?.links.map((l) => l.text)) === JSON.stringify(["Order", "Kitchen", "Menu", "Staff", "Settings"]), nav?.links.map((l) => l.text).join(","));
   check("Order marked as current page", nav?.links.find((l) => l.text === "Order")?.current === "page");
   const lockInView = await desk.evaluate(() => {
     const b = [...document.querySelectorAll("nav[aria-label=Till] button")].find((x) => x.textContent.includes("Lock") && x.offsetParent);
@@ -58,11 +58,11 @@ const noOverflow = (page) => page.evaluate(() => document.documentElement.scroll
   // Keyboard: Tab reaches the links and Lock, never the "coming later" items
   await desk.focus("body");
   const focused = [];
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 8; i++) {
     await desk.keyboard.press("Tab");
     focused.push(await desk.evaluate(() => document.activeElement?.textContent?.trim()));
   }
-  check("Tab order: Order, Kitchen, Lock", focused.slice(0, 3).join(",") === "Order,Kitchen,Lock", focused.slice(0, 3).join(" → "));
+  check("Tab order: the five links, then Lock", focused.slice(0, 6).join(",") === "Order,Kitchen,Menu,Staff,Settings,Lock", focused.slice(0, 6).join(" → "));
 
   await desk.evaluate(() => [...document.querySelectorAll("nav[aria-label=Till] a")].find((a) => a.textContent.includes("Kitchen") && a.offsetParent).click());
   await desk.waitForFunction(() => location.pathname === "/kitchen", { timeout: 10000 });

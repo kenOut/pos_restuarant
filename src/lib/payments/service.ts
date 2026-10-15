@@ -9,7 +9,6 @@ import {
   orderLines,
   orders,
   payments,
-  restaurants,
   staff,
   type MomoNetwork,
   type OrderStatus,
@@ -18,6 +17,8 @@ import {
   type StaffRole,
 } from "@/db/schema";
 import { checkPin } from "@/lib/auth/service";
+import { getSettings } from "@/lib/settings/service";
+import { DEFAULT_TAX_CONFIG } from "@/lib/tax-config";
 import { computeBill, percentOf, type Bill } from "./bill";
 
 export const DISCOUNT_REASON_MAX = 80;
@@ -43,6 +44,10 @@ export type PaymentRecord = {
 
 export type PaymentView = {
   restaurantName: string;
+  logoFile: string | null;
+  receiptFooter: string;
+  /** Whether a cashier or server needs a manager's PIN for a discount. */
+  discountNeedsApproval: boolean;
   order: {
     id: string;
     number: number;
@@ -89,6 +94,7 @@ function loadOrder(db: Db, restaurantId: string, orderId: string) {
       tip: orders.tip,
       subtotal: orders.subtotal,
       taxes: orders.taxes,
+      taxInclusive: orders.taxInclusive,
       total: orders.total,
     })
     .from(orders)
@@ -136,16 +142,27 @@ export function getPaymentView(db: Db, restaurantId: string, orderId: string): P
   const lines = loadLines(db, orderId);
   const taken = loadPayments(db, orderId);
 
+  const settings = getSettings(db, restaurantId);
+  // Paid orders show exactly what was charged; open ones use today's tax settings.
   const bill: Bill =
     order.status === "paid" && order.subtotal !== null && order.total !== null && order.taxes
-      ? { subtotal: order.subtotal, discount: order.discount, taxes: order.taxes, tip: order.tip, total: order.total }
-      : computeBill(lines, { discount: order.discount, tip: order.tip });
+      ? {
+          subtotal: order.subtotal,
+          discount: order.discount,
+          taxes: order.taxes.map((t) => ({ ...t, displayAs: t.displayAs ?? null })),
+          tip: order.tip,
+          total: order.total,
+          pricesIncludeTax: order.taxInclusive,
+        }
+      : computeBill(lines, { discount: order.discount, tip: order.tip }, settings?.taxConfig ?? DEFAULT_TAX_CONFIG);
   const paid = taken.reduce((sum, p) => sum + p.amount, 0);
 
-  const restaurantName = db.select({ name: restaurants.name }).from(restaurants).where(eq(restaurants.id, restaurantId)).get()?.name ?? "";
 
   return {
-    restaurantName,
+    restaurantName: settings?.name ?? "",
+    logoFile: settings?.logoFile ?? null,
+    receiptFooter: settings?.receiptFooter ?? "",
+    discountNeedsApproval: settings?.discountNeedsApproval ?? true,
     order: {
       id: order.id,
       number: order.number,
@@ -216,7 +233,8 @@ export async function setDiscount(
   if (!reason) return fail("Give a reason for the discount.");
 
   let approvedBy = actor.id;
-  if (!APPROVERS.includes(actor.role)) {
+  const needsApproval = getSettings(db, actor.restaurantId)?.discountNeedsApproval ?? true;
+  if (needsApproval && !APPROVERS.includes(actor.role)) {
     if (!approval?.staffId || typeof approval.pin !== "string") return fail("A manager needs to approve this discount.");
     const person = db
       .select({ role: staff.role })
@@ -316,7 +334,7 @@ export function takePayment(db: Db, actor: Actor, orderId: string, input: Paymen
     const lines = loadLines(tx as unknown as Db, orderId);
     if (lines.length === 0) return fail("There's nothing on this order to pay for.");
 
-    const bill = computeBill(lines, { discount: order.discount, tip: order.tip });
+    const bill = computeBill(lines, { discount: order.discount, tip: order.tip }, getSettings(tx as unknown as Db, actor.restaurantId)?.taxConfig ?? DEFAULT_TAX_CONFIG);
     const paidSoFar =
       tx
         .select({ sum: sql<number>`coalesce(sum(${payments.amount}), 0)` })
@@ -345,7 +363,7 @@ export function takePayment(db: Db, actor: Actor, orderId: string, input: Paymen
     tx.update(orders)
       .set(
         closed
-          ? { status: "paid", subtotal: bill.subtotal, taxes: bill.taxes, total: bill.total, paidAt: now, updatedAt: now }
+          ? { status: "paid", subtotal: bill.subtotal, taxes: bill.taxes, taxInclusive: bill.pricesIncludeTax, total: bill.total, paidAt: now, updatedAt: now }
           : { status: "open", updatedAt: now }
       )
       .where(eq(orders.id, orderId))

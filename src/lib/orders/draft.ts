@@ -1,7 +1,8 @@
 // The ticket being built on a till, before it's saved. Pure functions so the
 // rules are easy to test; the screen keeps a Draft in React state.
 import type { OrderType, Station } from "@/db/schema";
-import { calculateBill, type BillTotals } from "@/lib/tax";
+import { computeBill, type Bill } from "@/lib/payments/bill";
+import { DEFAULT_TAX_CONFIG, type TaxConfig } from "@/lib/tax-config";
 import type { MenuEntry, OrderDetail, SaveOrderInput, TicketLine } from "./service";
 import { MAX_QUANTITY, NOTE_MAX } from "./shared";
 
@@ -99,8 +100,9 @@ export function setDetails(draft: Draft, details: Partial<Pick<Draft, "type" | "
   return { ...draft, ...details, dirty: true };
 }
 
-export function draftTotals(draft: Draft): BillTotals {
-  return calculateBill([...draft.sent, ...draft.lines].map((l) => ({ unitPrice: l.unitPrice, quantity: l.quantity })));
+/** Ticket totals before any discount or tip (those are set on the pay screen). */
+export function draftTotals(draft: Draft, taxConfig: TaxConfig = DEFAULT_TAX_CONFIG): Bill {
+  return computeBill([...draft.sent, ...draft.lines].map((l) => ({ unitPrice: l.unitPrice, quantity: l.quantity })), {}, taxConfig);
 }
 
 /** Total quantity of each menu item on the ticket, for the badges on the menu. */

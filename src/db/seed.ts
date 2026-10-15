@@ -1,8 +1,9 @@
+import { randomUUID } from "node:crypto";
 import { hashSync } from "@node-rs/argon2";
 import { eq } from "drizzle-orm";
-import { DEMO_MENU } from "@/data/demo-menu";
+import { CATEGORIES, DEMO_MENU } from "@/data/demo-menu";
 import type { Db } from "./client";
-import { menuItems, restaurants, staff, type StaffRole } from "./schema";
+import { menuCategories, menuItems, restaurants, staff, type StaffRole } from "./schema";
 
 export const DEMO_RESTAURANT_ID = "chez-accra";
 
@@ -45,17 +46,29 @@ export function seedDemoData(db: Db): void {
 
     const demoRestaurant = tx.select({ id: restaurants.id }).from(restaurants).where(eq(restaurants.id, DEMO_RESTAURANT_ID)).get();
     const hasMenu = tx.select({ id: menuItems.id }).from(menuItems).limit(1).all().length > 0;
-    if (demoRestaurant && !hasMenu) {
-      tx.insert(menuItems)
-        .values(
-          DEMO_MENU.map((item, i) => ({
-            ...item,
-            restaurantId: DEMO_RESTAURANT_ID,
-            available: !DEMO_SOLD_OUT.has(item.id),
-            sortOrder: i,
-          }))
-        )
-        .run();
-    }
+    if (demoRestaurant && !hasMenu) insertSampleMenu(tx as unknown as Db, DEMO_RESTAURANT_ID, { demo: true });
   });
+}
+
+/**
+ * The deck's 16-dish menu and its five categories. The demo restaurant keeps
+ * the fixed dish ids (and its sold-out sorbet) that the tests rely on; a real
+ * restaurant starting from the sample gets fresh ids, everything available.
+ */
+export function insertSampleMenu(db: Db, restaurantId: string, { demo = false } = {}): void {
+  db.insert(menuCategories)
+    .values(CATEGORIES.map((name, i) => ({ id: randomUUID(), restaurantId, name, sortOrder: i })))
+    .onConflictDoNothing()
+    .run();
+  db.insert(menuItems)
+    .values(
+      DEMO_MENU.map((item, i) => ({
+        ...item,
+        id: demo ? item.id : randomUUID(),
+        restaurantId,
+        available: !(demo && DEMO_SOLD_OUT.has(item.id)),
+        sortOrder: i,
+      }))
+    )
+    .run();
 }

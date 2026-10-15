@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { OrderScreen } from "@/components/order/order-screen";
 import { getDb } from "@/db";
 import { requireStaff } from "@/lib/auth/session";
+import { canManageMenu } from "@/lib/menu/service";
 import { getOrderDetail, listMenu, listOpenOrders } from "@/lib/orders/service";
+import { getTaxConfig } from "@/lib/settings/service";
 
 export const metadata: Metadata = { title: "Order" };
 
@@ -18,6 +20,8 @@ export default async function OrderPage({ searchParams }: { searchParams: Promis
       openOrders={listOpenOrders(db, person.restaurantId)}
       staffName={person.name}
       initialOrder={opened && opened.status !== "paid" ? opened : null}
+      taxConfig={getTaxConfig(db, person.restaurantId)}
+      canMarkSoldOut={canManageMenu(person.role)}
     />
   );
 }

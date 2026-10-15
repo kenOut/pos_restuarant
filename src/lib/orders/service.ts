@@ -4,6 +4,7 @@ import type { Db } from "@/db/client";
 import {
   ORDER_TYPES,
   kitchenTickets,
+  menuCategories,
   menuItems,
   orderLines,
   orders,
@@ -13,7 +14,8 @@ import {
   type OrderType,
   type Station,
 } from "@/db/schema";
-import { calculateBill } from "@/lib/tax";
+import { computeBill } from "@/lib/payments/bill";
+import { getTaxConfig } from "@/lib/settings/service";
 import { FIRST_ORDER_NUMBER, LABEL_MAX, MAX_LINES, MAX_QUANTITY, NOTE_MAX } from "./shared";
 
 export { FIRST_ORDER_NUMBER };
@@ -93,8 +95,10 @@ export function listMenu(db: Db, restaurantId: string): MenuEntry[] {
       available: menuItems.available,
     })
     .from(menuItems)
-    .where(eq(menuItems.restaurantId, restaurantId))
-    .orderBy(asc(menuItems.sortOrder), asc(menuItems.name))
+    .leftJoin(menuCategories, and(eq(menuCategories.restaurantId, menuItems.restaurantId), eq(menuCategories.name, menuItems.category)))
+    .where(and(eq(menuItems.restaurantId, restaurantId), eq(menuItems.archived, false)))
+    // Categories in their set order, then dishes in theirs.
+    .orderBy(sql`coalesce(${menuCategories.sortOrder}, 1000000)`, asc(menuItems.sortOrder), asc(menuItems.name))
     .all();
 }
 
@@ -120,6 +124,8 @@ export function listOpenOrders(db: Db, restaurantId: string): OrderSummary[] {
       updatedAt: orders.updatedAt,
       itemCount: sql<number>`coalesce(sum(${orderLines.quantity}), 0)`,
       subtotal: sql<number>`coalesce(sum(${orderLines.quantity} * ${orderLines.unitPrice}), 0)`,
+      discount: orders.discount,
+      tip: orders.tip,
       unsent: sql<number>`coalesce(sum(case when ${orderLines.ticketId} is null and ${orderLines.id} is not null then 1 else 0 end), 0)`,
       paid: sql<number>`(select coalesce(sum(${payments.amount}), 0) from ${payments} where ${payments.orderId} = ${orders.id})`,
       ticketStatuses: sql<string | null>`(select group_concat(${kitchenTickets.status}) from ${kitchenTickets} where ${kitchenTickets.orderId} = ${orders.id})`,
@@ -132,11 +138,12 @@ export function listOpenOrders(db: Db, restaurantId: string): OrderSummary[] {
     .orderBy(desc(orders.updatedAt))
     .all();
 
-  return rows.map(({ subtotal, unsent, updatedAt, ticketStatuses, ...row }) => ({
+  const taxConfig = getTaxConfig(db, restaurantId);
+  return rows.map(({ subtotal, discount, tip, unsent, updatedAt, ticketStatuses, ...row }) => ({
     ...row,
     kitchen: kitchenProgress(ticketStatuses ? ticketStatuses.split(",") : []),
     // Taxes depend only on the subtotal, so one combined line gives the same total.
-    total: calculateBill([{ unitPrice: subtotal, quantity: 1 }]).total,
+    total: computeBill([{ unitPrice: subtotal, quantity: 1 }], { discount, tip }, taxConfig).total,
     hasUnsent: unsent > 0,
     updatedAt: updatedAt.getTime(),
   }));
@@ -235,6 +242,7 @@ export function saveOrder(db: Db, actor: Actor, input: SaveOrderInput, now = new
     for (const id of ids) {
       const item = byId.get(id);
       if (!item) return fail("One of the items is no longer on the menu.");
+      if (item.archived) return fail(`${item.name} is no longer on the menu.`);
       if (!item.available) return fail(`${item.name} is sold out.`);
     }
 

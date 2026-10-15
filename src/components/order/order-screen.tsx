@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { setAvailableAction } from "@/app/(till)/menu/actions";
 import { loadOrderAction, saveOrderAction } from "@/app/(till)/order/actions";
 import { Icon } from "@/components/icons";
 import { READY_EVENT, type ReadyDetail } from "@/components/till/till-live";
@@ -20,6 +21,7 @@ import {
 } from "@/lib/orders/draft";
 import type { MenuEntry, OrderDetail, OrderSummary } from "@/lib/orders/service";
 import { formatCedis } from "@/lib/money";
+import type { TaxConfig } from "@/lib/tax-config";
 import { MenuGrid } from "./menu-grid";
 import { OpenOrdersDialog } from "./open-orders";
 import { TicketPanel } from "./ticket-panel";
@@ -31,11 +33,14 @@ type Props = {
   staffName: string;
   /** Order to show on arrival (e.g. back from the pay screen). */
   initialOrder?: OrderDetail | null;
+  taxConfig: TaxConfig;
+  /** Owners and managers can mark dishes sold out from here. */
+  canMarkSoldOut?: boolean;
 };
 
 const ALL = "All";
 
-export function OrderScreen({ menu, openOrders, staffName, initialOrder = null }: Props) {
+export function OrderScreen({ menu, openOrders, staffName, initialOrder = null, taxConfig, canMarkSoldOut = false }: Props) {
   const router = useRouter();
   const [draft, setDraft] = useState<Draft>(() => (initialOrder ? draftFromOrder(initialOrder) : emptyDraft()));
   const [category, setCategory] = useState(ALL);
@@ -52,6 +57,12 @@ export function OrderScreen({ menu, openOrders, staffName, initialOrder = null }
   // Searching looks across every category.
   const visible = menu.filter((m) => (query ? m.name.toLowerCase().includes(query) : category === ALL || m.category === category));
   const quantities = quantitiesByItem(draft);
+  const [soldOutMode, setSoldOutMode] = useState(false);
+  const toggleSoldOut = (item: MenuEntry) =>
+    startTransition(async () => {
+      const result = await setAvailableAction(item.id, !item.available);
+      setToast({ id: Date.now(), message: result.ok ? (item.available ? `${item.name} marked sold out` : `${item.name} back on`) : result.error });
+    });
   const count = itemCount(draft);
 
   const update = (change: (d: Draft) => Draft) => {
@@ -167,7 +178,17 @@ export function OrderScreen({ menu, openOrders, staffName, initialOrder = null }
               className="h-full w-full bg-transparent text-cream placeholder:text-cream-faint/70 focus:outline-none"
             />
           </div>
-          <div className="ml-auto flex gap-2">
+          <div className="ml-auto flex flex-wrap justify-end gap-2">
+            {canMarkSoldOut ? (
+              <button
+                type="button"
+                aria-pressed={soldOutMode}
+                onClick={() => setSoldOutMode((on) => !on)}
+                className={`flex min-h-11 items-center gap-2 rounded-xl border px-3 text-sm font-semibold ${soldOutMode ? "border-alert bg-alert-soft text-cream" : "border-ink-600 hover:bg-ink-800"}`}
+              >
+                {soldOutMode ? "Done marking" : "Mark sold out"}
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={showOrders}
@@ -215,13 +236,24 @@ export function OrderScreen({ menu, openOrders, staffName, initialOrder = null }
             </ul>
           </nav>
           <div className="min-h-0 flex-1 overflow-y-auto p-3 pb-24 sm:p-4 md:pb-4">
-            <MenuGrid items={visible} quantities={quantities} onAdd={(item) => update((d) => addItem(d, item))} />
+            {soldOutMode ? (
+              <p role="status" className="mb-3 rounded-xl bg-alert-soft px-4 py-3 text-sm">
+                <strong>Marking sold out.</strong> Tap a dish to mark it sold out, or tap a sold-out dish to put it back. Every till updates at once.
+              </p>
+            ) : null}
+            <MenuGrid
+              items={visible}
+              quantities={quantities}
+              soldOutMode={soldOutMode}
+              onAdd={(item) => (soldOutMode ? toggleSoldOut(item) : update((d) => addItem(d, item)))}
+            />
           </div>
         </div>
       </section>
 
       {/* Ticket: side panel from tablets up, full screen on phones */}
       <TicketPanel
+        taxConfig={taxConfig}
         className={ticketOpen ? "fixed inset-0 z-50 flex md:static md:z-auto" : "hidden md:flex"}
         draft={draft}
         staffName={staffName}
@@ -248,7 +280,7 @@ export function OrderScreen({ menu, openOrders, staffName, initialOrder = null }
           <span>
             View order · {count} item{count === 1 ? "" : "s"}
           </span>
-          <span className="tabular-nums">{formatCedis(draftTotals(draft).total)}</span>
+          <span className="tabular-nums">{formatCedis(draftTotals(draft, taxConfig).total)}</span>
         </button>
       ) : null}
 

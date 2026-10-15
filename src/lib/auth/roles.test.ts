@@ -27,6 +27,9 @@ describe("navFor", () => {
     expect(linked).toEqual([
       ["order", "/order"],
       ["kitchen", "/kitchen"],
+      ["menu", "/menu"],
+      ["staff", "/staff"],
+      ["settings", "/settings"],
     ]);
   });
 });

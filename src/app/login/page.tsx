@@ -7,6 +7,9 @@ import { getDb } from "@/db";
 import { homePathFor } from "@/lib/auth/roles";
 import { getRestaurantName, listSignInTiles } from "@/lib/auth/service";
 import { getCurrentStaff } from "@/lib/auth/session";
+import { restaurants } from "@/db/schema";
+import { getSettings, logoUrl } from "@/lib/settings/service";
+import { needsSetup } from "@/lib/setup/service";
 
 export const metadata: Metadata = { title: "Sign in" };
 
@@ -16,19 +19,22 @@ export default async function LoginPage() {
   if (current) redirect(homePathFor(current.role));
 
   const db = getDb();
+  // A brand-new main computer: create the restaurant and its owner first.
+  if (needsSetup(db)) redirect("/setup");
   const restaurantName = getRestaurantName(db);
   const tiles = listSignInTiles(db);
+  const restaurantId = db.select({ id: restaurants.id }).from(restaurants).get()?.id;
+  const logo = restaurantId ? logoUrl(getSettings(db, restaurantId)?.logoFile ?? null) : null;
 
   if (!restaurantName || tiles.length === 0) {
     return (
       <main className="grid min-h-dvh place-items-center px-4">
         <div className="max-w-md text-center">
           <Logo size={40} className="justify-center" />
-          <h1 className="mt-8 font-display text-3xl font-bold">This till isn&rsquo;t set up yet</h1>
+          <h1 className="mt-8 font-display text-3xl font-bold">Nobody can sign in yet</h1>
           <p className="mt-3 text-cream-muted">
-            No restaurant or staff have been added to this main computer. First-time setup comes in a later phase; for
-            now, start the app with <code className="rounded bg-ink-800 px-1.5 py-0.5 text-cream">ENYO_SEED_DEMO=1</code> to
-            load the demonstration staff.
+            This restaurant has no active staff. Restore a backup, or ask whoever set up this main computer to check the
+            staff list.
           </p>
           <Link href="/" className="mt-8 inline-block text-amber underline-offset-4 hover:underline">
             Back to the ENYO POS website
@@ -40,7 +46,7 @@ export default async function LoginPage() {
 
   return (
     <main>
-      <SignInScreen restaurantName={restaurantName} tiles={tiles} />
+      <SignInScreen restaurantName={restaurantName} logoUrl={logo} tiles={tiles} />
     </main>
   );
 }

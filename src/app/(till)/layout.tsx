@@ -1,6 +1,7 @@
 import { TillLive } from "@/components/till/till-live";
 import { TillNav } from "@/components/till/till-nav";
 import { countActiveTickets } from "@/lib/kitchen/service";
+import { getSettings, logoUrl } from "@/lib/settings/service";
 import { getDb } from "@/db";
 import { ROLE_LABELS, navFor } from "@/lib/auth/roles";
 import { getRestaurantName } from "@/lib/auth/service";
@@ -13,7 +14,8 @@ import { requireStaff } from "@/lib/auth/session";
 export default async function TillLayout({ children }: { children: React.ReactNode }) {
   const person = await requireStaff();
   const db = getDb();
-  const restaurantName = getRestaurantName(db) ?? "ENYO POS";
+  const settings = getSettings(db, person.restaurantId);
+  const restaurantName = settings?.name ?? getRestaurantName(db) ?? "ENYO POS";
 
   return (
     <div className="flex h-dvh">
@@ -22,6 +24,7 @@ export default async function TillLayout({ children }: { children: React.ReactNo
         badges={{ kitchen: countActiveTickets(db, person.restaurantId) }}
         items={navFor(person.role)}
         restaurantName={restaurantName}
+        logoUrl={logoUrl(settings?.logoFile ?? null)}
         person={{ name: person.name, initials: person.initials, label: person.jobTitle ?? ROLE_LABELS[person.role] }}
       />
       <main className="min-w-0 flex-1 overflow-y-auto pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0">

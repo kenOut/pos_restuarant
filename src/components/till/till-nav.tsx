@@ -12,7 +12,7 @@ import { gsap, prefersReducedMotion } from "@/lib/gsap";
 type Person = { name: string; initials: string; label: string };
 /** Counts shown on a section, e.g. kitchen tickets still cooking. */
 type Badges = Partial<Record<NavId, number>>;
-type Props = { items: NavItem[]; person: Person; restaurantName: string; badges?: Badges };
+type Props = { items: NavItem[]; person: Person; restaurantName: string; logoUrl?: string | null; badges?: Badges };
 
 /** Sections that get their own tab on phones; the rest live under More. */
 const PHONE_TABS: readonly NavId[] = ["home", "tables", "order", "kitchen"];
@@ -84,7 +84,7 @@ function RailItem({ item, active, badge }: { item: NavItem; active: boolean; bad
   );
 }
 
-export function TillNav({ items, person, restaurantName, badges = {} }: Props) {
+export function TillNav({ items, person, restaurantName, logoUrl = null, badges = {} }: Props) {
   const isActive = useActive();
   const dialogRef = useRef<HTMLDialogElement>(null);
 
@@ -109,7 +109,7 @@ export function TillNav({ items, person, restaurantName, badges = {} }: Props) {
         className="hidden h-dvh w-[5.25rem] shrink-0 flex-col items-center border-r border-ink-700 bg-ink-950 py-3 md:flex"
       >
         <span title={restaurantName}>
-          <RestaurantMark className="size-11" />
+          <RestaurantMark className="size-11" logoUrl={logoUrl} />
           <span className="sr-only">{restaurantName}</span>
         </span>
 

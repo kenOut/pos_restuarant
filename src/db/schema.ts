@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import type { TaxConfig } from "@/lib/tax-config";
 import { MOMO_NETWORKS, ORDER_STATUSES, ORDER_TYPES, PAYMENT_METHODS, STAFF_ROLES, STATIONS, TICKET_STATUSES } from "./enums";
 
 export * from "./enums";
@@ -14,6 +15,13 @@ const createdAt = () =>
 export const restaurants = sqliteTable("restaurants", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
+  /** File name of the uploaded logo in data/uploads, or null for the default mark. */
+  logoFile: text("logo_file"),
+  receiptFooter: text("receipt_footer").notNull().default("Thank you for dining with us."),
+  /** Discounts from cashiers and servers need an owner or manager's PIN. */
+  discountNeedsApproval: integer("discount_needs_approval", { mode: "boolean" }).notNull().default(true),
+  /** Null means Ghana's 2026 defaults (see DEFAULT_TAX_CONFIG). */
+  taxConfig: text("tax_config", { mode: "json" }).$type<TaxConfig>(),
   createdAt: createdAt(),
 });
 
@@ -68,9 +76,25 @@ export const menuItems = sqliteTable(
     price: integer("price").notNull(),
     /** False when sold out: shown greyed and can't be added. */
     available: integer("available", { mode: "boolean" }).notNull().default(true),
+    /** Taken off the menu but kept, because past orders refer to it. */
+    archived: integer("archived", { mode: "boolean" }).notNull().default(false),
     sortOrder: integer("sort_order").notNull().default(0),
   },
   (t) => [index("menu_items_restaurant_idx").on(t.restaurantId)]
+);
+
+/** Menu categories in the order they appear on the till. Items refer to them by name. */
+export const menuCategories = sqliteTable(
+  "menu_categories",
+  {
+    id: text("id").primaryKey(),
+    restaurantId: text("restaurant_id")
+      .notNull()
+      .references(() => restaurants.id),
+    name: text("name").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (t) => [uniqueIndex("menu_categories_name_idx").on(t.restaurantId, t.name)]
 );
 
 
@@ -102,7 +126,9 @@ export const orders = sqliteTable(
     tip: integer("tip").notNull().default(0),
     /** Frozen when the order is paid, so later price or tax changes never rewrite it. */
     subtotal: integer("subtotal"),
-    taxes: text("taxes", { mode: "json" }).$type<{ id: string; label: string; amount: number }[]>(),
+    taxes: text("taxes", { mode: "json" }).$type<{ id: string; label: string; amount: number; displayAs?: string | null }[]>(),
+    /** Whether the frozen total had its taxes inside the menu prices. */
+    taxInclusive: integer("tax_inclusive", { mode: "boolean" }).notNull().default(false),
     total: integer("total"),
     paidAt: integer("paid_at", { mode: "timestamp_ms" }),
     createdAt: createdAt(),
@@ -191,6 +217,8 @@ export const payments = sqliteTable(
 export type Staff = typeof staff.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
 export type MenuItemRow = typeof menuItems.$inferSelect;
+export type MenuCategory = typeof menuCategories.$inferSelect;
+export type Restaurant = typeof restaurants.$inferSelect;
 export type Order = typeof orders.$inferSelect;
 export type OrderLine = typeof orderLines.$inferSelect;
 export type Payment = typeof payments.$inferSelect;

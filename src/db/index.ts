@@ -22,10 +22,17 @@ function shouldSeedDemo(): boolean {
   return process.env.NODE_ENV !== "production" || process.env.ENYO_SEED_DEMO === "1";
 }
 
+const databaseFile = () => process.env.DATABASE_PATH ?? path.join(process.cwd(), "data", "enyo.db");
+
+/** Uploaded files (the logo) live next to the database, so backups can include them. */
+export function getUploadsDir(): string {
+  return path.join(path.dirname(databaseFile()), "uploads");
+}
+
 /** The restaurant database on this main computer (data/enyo.db unless DATABASE_PATH is set). */
 export function getDb(): Db {
   if (!globalForDb.enyoDb) {
-    const file = process.env.DATABASE_PATH ?? path.join(process.cwd(), "data", "enyo.db");
+    const file = databaseFile();
     const db = openDatabase(file);
     if (shouldSeedDemo()) seedDemoData(db);
     globalForDb.enyoDb = db;

@@ -4,8 +4,8 @@ Touch-screen point of sale for restaurants in Ghana. The restaurant's main compu
 
 Built with Next.js 16, React 19, SQLite (Drizzle ORM), Tailwind CSS 4, GSAP and Lenis.
 
-**What works today:** marketing website · staff sign-in with PINs · till shell for every role · order screen (menu, ticket, notes, taxes, hold and send) · kitchen display with live updates to every screen · payments (cash with change, mobile money, card, voucher, house account; split bills; tips; manager-approved discounts) and printable receipts.
-**Not built yet:** floor plan, menu/staff/settings management, automatic backups, reports, head office, offline phone app, silent printing straight to a receipt printer.
+**What works today:** marketing website · staff sign-in with PINs · till shell for every role · order screen (menu, ticket, notes, taxes, hold and send) · kitchen display with live updates to every screen · payments (cash with change, mobile money, card, voucher, house account; split bills; tips; manager-approved discounts) and printable receipts · menu, staff and settings management (logo, receipt footer, tax setup) · first-time setup.
+**Not built yet:** floor plan, automatic backups, reports, head office, offline phone app, silent printing straight to a receipt printer.
 
 ## Requirements
 
@@ -47,10 +47,10 @@ The database is created at `data/enyo.db` on first run and filled with the demon
 
 Notes:
 
-- **Data** lives in `data/enyo.db` (plus `enyo.db-wal` and `enyo.db-shm` while running). Every change is written to disk before it's confirmed.
+- **Data** lives in `data/enyo.db` (plus `enyo.db-wal` and `enyo.db-shm` while running), and the uploaded logo in `data/uploads/`. Every change is written to disk before it's confirmed.
 - **Backups:** until nightly backups are built, stop the app and copy the whole `data` folder somewhere safe (USB drive or cloud folder) at the end of each day.
 - **Keep the project out of OneDrive/Dropbox folders.** Sync tools lock files in `.next` and `data` while the app writes to them, which breaks builds and can corrupt a live database copy. `C:\enyo-pos` is a good place.
-- **Demo data is not loaded in production.** A new production database starts empty and the sign-in screen says the till isn't set up yet. Set `ENYO_SEED_DEMO=1` to load the demonstration staff and menu (for trials only).
+- **First run:** a new production database starts empty, and the till opens a short setup — restaurant name, your name and PIN (you become the owner), and optionally the 16-dish sample menu. Setup only works while the database is empty. Demo staff are not loaded in production unless `ENYO_SEED_DEMO=1` (for trials only).
 - The browser address is plain `http://` on the local network. Session cookies are therefore not marked *Secure*; set `ENYO_SECURE_COOKIES=1` if you put the app behind https.
 
 ## Demonstration staff
@@ -75,6 +75,9 @@ Five wrong PINs in a row lock that person out for 5 minutes. **Lock** (bottom of
 - **Prices and taxes** always come from the database. VAT 15%, NHIL 2.5% and GETFund 2.5% are each rounded to the pesewa and the total is the sum of the rounded lines, so a receipt always adds up (GH₵ 145.00 → 174.01). Each order line keeps the name and price it was sold at.
 - **Kitchen display:** tickets oldest first with a timer that turns amber at 10 minutes and red at 15. **Start** → cooking, **Bump** → ready-to-serve strip, tap the chip once served, **Recall last** to bring back the last bumped ticket. Filter by station.
 - **Payments:** **Pay** holds any changes and opens the pay screen. Take cash (with change), mobile money (MTN MoMo, Telecel Cash, AT Money, with the customer's number), card, voucher or house account, in one go or split (½, ⅓, ¼ or any amount, mixing methods). A discount comes off before tax and needs a reason; cashiers and servers need an owner or manager to enter their PIN. Tips are added after tax and aren't taxed. Any items not yet sent go to the kitchen with the first payment. Once money is taken the order, discount and tip are locked; when the balance reaches zero the order closes and its subtotal, taxes and total are frozen. ENYO POS records payments taken on your own terminals and phones; it doesn't process them.
+- **Menu (owners and managers):** add, edit, reorder and remove dishes and categories; mark dishes sold out (also from the order screen with **Mark sold out**). A dish that has been ordered is archived rather than deleted, and can be put back. Orders already taken keep the names and prices they were sold at.
+- **Staff (owners and managers):** add people with a role, job title and PIN; reset PINs (which also clears a lockout); unlock; deactivate (signs them out on every till at once). Managers manage cashiers, servers, bartenders and kitchen staff; owners manage everyone. The last owner can't be removed or demoted.
+- **Settings:** restaurant name, logo (PNG, JPEG or WebP up to 512 KB) and receipt footer; whether discounts need a manager; and, for owners only, taxes — VAT registered or not, each tax's rate, whether it's charged, whether it has its own receipt line or is folded into one combined line, and tax-inclusive menu prices. A receipt preview updates as you change them. New orders use the current settings; paid orders keep exactly what they were charged.
 - **Receipts:** 80 mm receipts (or a bill before payment) print through the browser's print dialog — choose the receipt printer there.
 - **Live updates:** every till and kitchen screen holds a Server-Sent Events connection to the main computer (`/api/events`, signed-in staff only). Any send, start, bump, serve or recall refreshes every screen in about a second and shows "Order #… is ready" on the tills. If the connection drops, a banner shows until it reconnects.
 - **Two tills, one order:** saves carry a version number; a till with an out-of-date copy is told to reopen the order instead of overwriting.
@@ -95,22 +98,23 @@ Put these in `.env.local` (ignored by git) or set them in the environment:
 ```bash
 npm run lint        # ESLint
 npm run typecheck   # TypeScript
-npm test            # unit tests (Vitest): taxes, sign-in, roles, orders, kitchen, payments
+npm test            # unit tests (Vitest): taxes, sign-in, roles, orders, kitchen, payments, menu, staff, settings, setup
 npm run test:e2e    # browser tests (builds first)
 ```
 
-`npm run test:e2e` builds the app, then runs each suite against its own production server and a fresh throwaway database: `landing`, `login`, `shell`, `order`, `kitchen`, `payments` and `a11y` (axe-core WCAG 2.2 AA on every screen, plus a 44 × 44 px minimum for till controls). Run some suites only with `npm run test:e2e -- order kitchen`, or skip the build with `-- --no-build`. Screenshots go to `e2e/output/`. Set `CHROME_PATH` if Chrome or Edge isn't in the usual place.
+`npm run test:e2e` builds the app, then runs each suite against its own production server and a fresh throwaway database: `landing`, `login`, `shell`, `order`, `kitchen`, `payments`, `admin`, `setup` (on an empty database) and `a11y` (axe-core WCAG 2.2 AA on every screen, plus a 44 × 44 px minimum for till controls). Run some suites only with `npm run test:e2e -- order kitchen`, or skip the build with `-- --no-build`. Screenshots go to `e2e/output/`. Set `CHROME_PATH` if Chrome or Edge isn't in the usual place.
 
 ## Project layout
 
 ```
-src/app/                 pages: website (/), sign-in (/login), till (/order, /kitchen, /pay/[order]), receipt (/receipt/[order]), live events (/api/events)
+src/app/                 pages: website (/), setup (/setup), sign-in (/login), till (/order, /kitchen, /pay/[order], /menu, /staff, /settings), receipt (/receipt/[order]), live events (/api/events), logo (/api/logo/[file])
 src/components/landing/  website sections, device mockups, scroll animations
 src/components/auth/     sign-in screen
 src/components/till/     till shell (sidebar, phone tabs, live connection)
 src/components/order/    order screen
 src/components/kitchen/  kitchen display
 src/components/pay/      pay screen, discount dialog, receipt controls
+src/components/menu/, staff/, settings/, setup/, admin/   management screens and their shared pieces
 src/components/react-bits/  adapted React Bits text and reveal animations
 src/db/                  schema, connection, migrations runner, demo seed
 src/lib/                 business rules (auth, orders, kitchen, tax, money) with unit tests

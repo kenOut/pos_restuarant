@@ -7,10 +7,12 @@ type Props = {
   items: MenuEntry[];
   quantities: Map<string, number>;
   onAdd: (item: MenuEntry) => void;
+  /** Taps switch dishes between sold out and available instead of adding them. */
+  soldOutMode?: boolean;
 };
 
 /** Tap a dish to add one to the ticket. Sold-out dishes are greyed out and can't be tapped. */
-export function MenuGrid({ items, quantities, onAdd }: Props) {
+export function MenuGrid({ items, quantities, onAdd, soldOutMode = false }: Props) {
   if (items.length === 0) {
     return <p className="py-16 text-center text-cream-muted">No dishes or drinks match your search.</p>;
   }
@@ -25,10 +27,12 @@ export function MenuGrid({ items, quantities, onAdd }: Props) {
             <button
               type="button"
               onClick={() => onAdd(item)}
-              disabled={!item.available}
+              disabled={!item.available && !soldOutMode}
               className={`relative flex min-h-20 w-full flex-col justify-between gap-2 rounded-xl border p-3 text-left transition duration-100 motion-reduce:transition-none ${
                 !item.available
-                  ? "cursor-not-allowed border-ink-800 bg-ink-900 text-cream-faint"
+                  ? soldOutMode
+                    ? "border-alert/60 bg-alert-soft text-cream-faint"
+                    : "cursor-not-allowed border-ink-800 bg-ink-900 text-cream-faint"
                   : qty
                     ? "border-amber/80 bg-amber-soft active:scale-[0.97]"
                     : "border-ink-700 bg-ink-850 hover:border-ink-600 hover:bg-ink-800 active:scale-[0.97]"
@@ -49,6 +53,7 @@ export function MenuGrid({ items, quantities, onAdd }: Props) {
                 </span>
               ) : null}
               {qty ? <span className="sr-only">, {qty} on the ticket</span> : null}
+              {soldOutMode ? <span className="sr-only">{item.available ? ", tap to mark sold out" : ", tap to put back on"}</span> : null}
             </button>
           </li>
         );

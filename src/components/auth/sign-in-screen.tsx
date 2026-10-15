@@ -10,9 +10,9 @@ import { TillClock } from "./till-clock";
 const PIN_LENGTH = 4;
 const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "clear", "0", "back"] as const;
 
-type Props = { restaurantName: string; tiles: SignInTile[] };
+type Props = { restaurantName: string; logoUrl?: string | null; tiles: SignInTile[] };
 
-export function SignInScreen({ restaurantName, tiles }: Props) {
+export function SignInScreen({ restaurantName, logoUrl = null, tiles }: Props) {
   const dotsRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -85,7 +85,7 @@ export function SignInScreen({ restaurantName, tiles }: Props) {
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-6xl flex-col px-4 py-6 sm:px-6 lg:py-10">
       <header className="flex items-center gap-3">
-        <RestaurantMark className="size-11" />
+        <RestaurantMark className="size-11" logoUrl={logoUrl} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-lg font-semibold">{restaurantName}</p>
           <p className="text-sm text-cream-faint">ENYO POS</p>
