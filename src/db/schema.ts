@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import type { TaxConfig } from "@/lib/tax-config";
-import { MOMO_NETWORKS, ORDER_STATUSES, ORDER_TYPES, PAYMENT_METHODS, STAFF_ROLES, STATIONS, TABLE_SHAPES, TICKET_STATUSES } from "./enums";
+import { MOMO_NETWORKS, ORDER_STATUSES, ORDER_TYPES, PAYMENT_METHODS, SESSION_KINDS, STAFF_ROLES, STATIONS, TABLE_SHAPES, TICKET_STATUSES } from "./enums";
 
 export * from "./enums";
 
@@ -26,6 +26,8 @@ export const restaurants = sqliteTable("restaurants", {
   backupTime: text("backup_time").notNull().default("23:30"),
   /** Optional second folder (e.g. a USB drive) that every backup is also copied to. */
   backupCopyDir: text("backup_copy_dir"),
+  /** Websites allowed to call the data API from a browser, one origin per line. Servers don't need this. */
+  apiAllowedOrigins: text("api_allowed_origins"),
   createdAt: createdAt(),
 });
 
@@ -60,9 +62,33 @@ export const sessions = sqliteTable(
       .notNull()
       .references(() => staff.id, { onDelete: "cascade" }),
     expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+    /** "till" for the till, "office" for the back office (which signs out after 30 idle minutes). */
+    kind: text("kind", { enum: SESSION_KINDS }).notNull().default("till"),
     createdAt: createdAt(),
   },
   (t) => [index("sessions_staff_idx").on(t.staffId)]
+);
+
+/** Keys for the read-only data API. Only a hash of each key is stored. */
+export const apiKeys = sqliteTable(
+  "api_keys",
+  {
+    id: text("id").primaryKey(),
+    restaurantId: text("restaurant_id")
+      .notNull()
+      .references(() => restaurants.id),
+    name: text("name").notNull(),
+    /** The start of the key, shown so people can tell keys apart. */
+    prefix: text("prefix").notNull(),
+    keyHash: text("key_hash").notNull(),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => staff.id),
+    createdAt: createdAt(),
+    lastUsedAt: integer("last_used_at", { mode: "timestamp_ms" }),
+    revokedAt: integer("revoked_at", { mode: "timestamp_ms" }),
+  },
+  (t) => [uniqueIndex("api_keys_hash_idx").on(t.keyHash), index("api_keys_restaurant_idx").on(t.restaurantId)]
 );
 
 
@@ -271,3 +297,4 @@ export type OrderLine = typeof orderLines.$inferSelect;
 export type Payment = typeof payments.$inferSelect;
 export type FloorArea = typeof floorAreas.$inferSelect;
 export type DiningTable = typeof diningTables.$inferSelect;
+export type ApiKey = typeof apiKeys.$inferSelect;

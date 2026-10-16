@@ -17,7 +17,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const SUITES = ["landing", "login", "shell", "order", "kitchen", "payments", "admin", "setup", "backups", "branches", "tables", "a11y"];
+const SUITES = ["landing", "login", "shell", "order", "kitchen", "payments", "admin", "setup", "backups", "branches", "tables", "office", "a11y"];
 /** Suites that start from the website or head office rather than a branch. */
 const SITE_SUITES = new Set(["landing", "setup", "branches"]);
 /** Extra environment for particular suites: setup needs an empty install. */

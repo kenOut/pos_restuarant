@@ -97,9 +97,14 @@ export default async function HeadOfficePage({ searchParams }: { searchParams: P
                   <p className="text-sm break-all text-cream-faint">{url.replace(/^https?:\/\//, "")}</p>
                 </div>
                 {branch.active ? (
-                  <a href={`${url}/login`} aria-label={`Open ${branch.name}`} className={buttonClass}>
-                    Open
-                  </a>
+                  <div className="flex flex-wrap gap-2">
+                    <a href={`${url}/office`} aria-label={`Back office of ${branch.name}`} className="inline-flex min-h-11 items-center rounded-xl border border-ink-600 px-4 font-semibold hover:bg-ink-800">
+                      Back office
+                    </a>
+                    <a href={`${url}/login`} aria-label={`Open ${branch.name}`} className={buttonClass}>
+                      Open
+                    </a>
+                  </div>
                 ) : null}
               </div>
               {day ? (

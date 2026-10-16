@@ -211,7 +211,7 @@ export function updateTable(db: Db, actor: Actor, id: string, input: TableInput)
   db.transaction((tx) => {
     tx.update(diningTables).set({ label, seats, shape, areaId, ...spot }).where(eq(diningTables.id, table.id)).run();
     // An open order follows its table's new name.
-    tx.update(orders).set({ tableLabel: label }).where(and(eq(orders.tableId, table.id), inArray(orders.status, ["held", "open"]))).run();
+    tx.update(orders).set({ tableLabel: label, updatedAt: new Date() }).where(and(eq(orders.tableId, table.id), inArray(orders.status, ["held", "open"]))).run();
   });
   return OK;
 }
@@ -270,7 +270,7 @@ export function markBillPrinted(db: Db, restaurantId: string, orderId: string, n
   const found = findOpenOrder(db, restaurantId, orderId);
   if ("error" in found) return fail(found.error);
   if (!db.select({ id: orderLines.id }).from(orderLines).where(eq(orderLines.orderId, found.order.id)).limit(1).get()) return fail("This order has nothing on it yet.");
-  db.update(orders).set({ billPrintedAt: now }).where(eq(orders.id, found.order.id)).run();
+  db.update(orders).set({ billPrintedAt: now, updatedAt: now }).where(eq(orders.id, found.order.id)).run();
   return OK;
 }
 

@@ -19,7 +19,8 @@ const dateTime = new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeSty
 const size = (bytes: number) => (bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`);
 
 /** Settings → Server and backups (owners). */
-export function BackupsPanel({ status }: { status: BackupStatus }) {
+/** downloadBase: "" on the till, "/office" in the back office (each has its own sign-in cookie). */
+export function BackupsPanel({ status, downloadBase = "" }: { status: BackupStatus; downloadBase?: string }) {
   const id = useId();
   const branchPath = useBranchPath();
   const [time, setTime] = useState(status.time);
@@ -97,7 +98,7 @@ export function BackupsPanel({ status }: { status: BackupStatus }) {
                 </p>
               </div>
               <a
-                href={branchPath(`/api/backups/${b.id}`)}
+                href={branchPath(`${downloadBase}/api/backups/${b.id}`)}
                 download
                 className="inline-flex min-h-11 items-center rounded-xl border border-ink-600 px-4 text-sm font-semibold hover:bg-ink-800"
               >

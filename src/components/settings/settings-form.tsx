@@ -18,7 +18,7 @@ import { BackupsPanel } from "./backups-panel";
 import type { TaxConfig } from "@/lib/tax-config";
 import { formatAmount, formatCedis } from "@/lib/money";
 
-type Props = { settings: RestaurantSettings; logoUrl: string | null; canEditTaxes: boolean; backups: BackupStatus | null };
+type Props = { settings: RestaurantSettings; logoUrl: string | null; canEditTaxes: boolean; backups: BackupStatus | null; downloadBase?: string };
 type Status = { section: string; ok: boolean; message: string } | null;
 
 // Preview the deck's receipt: 2× Jollof rice and 1× Sobolo.
@@ -40,7 +40,7 @@ function Switch({ checked, onChange, label, description, disabled }: { checked: 
   );
 }
 
-export function SettingsForm({ settings, logoUrl, canEditTaxes, backups }: Props) {
+export function SettingsForm({ settings, logoUrl, canEditTaxes, backups, downloadBase = "" }: Props) {
   const id = useId();
   const [name, setName] = useState(settings.name);
   const [footer, setFooter] = useState(settings.receiptFooter);
@@ -294,7 +294,7 @@ export function SettingsForm({ settings, logoUrl, canEditTaxes, backups }: Props
           </section>
 
           {backups ? (
-            <BackupsPanel status={backups} />
+            <BackupsPanel status={backups} downloadBase={downloadBase} />
           ) : (
             <section className={section}>
               <h2 className="font-display text-xl font-bold">Server and backups</h2>

@@ -5,18 +5,32 @@ import { usePathname } from "next/navigation";
 import { useRef } from "react";
 import { lockTill } from "@/app/b/[branch]/(till)/actions";
 import { RestaurantMark } from "@/components/brand/restaurant-mark";
-import { Icon } from "@/components/icons";
-import type { NavId, NavItem } from "@/lib/auth/roles";
+import { Icon, type IconName } from "@/components/icons";
 import { useBranchPath } from "@/components/tenancy/branch-context";
 import { gsap, prefersReducedMotion } from "@/lib/gsap";
 
 type Person = { name: string; initials: string; label: string };
 /** Counts shown on a section, e.g. kitchen tickets still cooking. */
-type Badges = Partial<Record<NavId, number>>;
-type Props = { items: NavItem[]; person: Person; restaurantName: string; logoUrl?: string | null; badges?: Badges };
+type Badges = Partial<Record<string, number>>;
+/** A section of the side menu; without an href it shows as "coming later". */
+export type NavItem = { id: string; label: string; icon: IconName; href: string | null; /** Current only on this exact page, not the pages under it. */ exact?: boolean };
+/** The button at the foot of the menu: Lock on the till, Log out in the back office. */
+type Exit = { action: () => Promise<void>; label: string; icon: IconName };
+type Props = {
+  items: NavItem[];
+  person: Person;
+  restaurantName: string;
+  logoUrl?: string | null;
+  badges?: Badges;
+  /** Accessible name of the menu, e.g. "Till" or "Back office". */
+  label?: string;
+  /** Sections that get their own tab on phones; the rest live under More. */
+  phoneTabs?: readonly string[];
+  exit?: Exit;
+};
 
-/** Sections that get their own tab on phones; the rest live under More. */
-const PHONE_TABS: readonly NavId[] = ["home", "tables", "order", "kitchen"];
+const TILL_TABS: readonly string[] = ["home", "tables", "order", "kitchen"];
+const LOCK: Exit = { action: lockTill, label: "Lock", icon: "lock" };
 
 function useActive() {
   const pathname = usePathname();
@@ -24,16 +38,16 @@ function useActive() {
   return (item: NavItem) => {
     if (!item.href) return false;
     const href = branchPath(item.href);
-    return pathname === href || pathname.startsWith(`${href}/`);
+    return pathname === href || (!item.exact && pathname.startsWith(`${href}/`));
   };
 }
 
-function LockButton({ className = "" }: { className?: string }) {
+function ExitButton({ exit, className = "" }: { exit: Exit; className?: string }) {
   return (
-    <form action={lockTill} className="contents">
+    <form action={exit.action} className="contents">
       <button type="submit" className={className}>
-        <Icon name="lock" className="size-5" />
-        <span>Lock</span>
+        <Icon name={exit.icon} className="size-5" />
+        <span>{exit.label}</span>
       </button>
     </form>
   );
@@ -91,13 +105,13 @@ function RailItem({ item, active, badge }: { item: NavItem; active: boolean; bad
   );
 }
 
-export function TillNav({ items, person, restaurantName, logoUrl = null, badges = {} }: Props) {
+export function TillNav({ items, person, restaurantName, logoUrl = null, badges = {}, label = "Till", phoneTabs = TILL_TABS, exit = LOCK }: Props) {
   const isActive = useActive();
   const branchPath = useBranchPath();
   const dialogRef = useRef<HTMLDialogElement>(null);
 
-  const tabs = items.filter((i) => PHONE_TABS.includes(i.id));
-  const more = items.filter((i) => !PHONE_TABS.includes(i.id));
+  const tabs = items.filter((i) => phoneTabs.includes(i.id));
+  const more = items.filter((i) => !phoneTabs.includes(i.id));
   const moreActive = more.some(isActive);
 
   const openMore = () => {
@@ -113,7 +127,7 @@ export function TillNav({ items, person, restaurantName, logoUrl = null, badges 
     <>
       {/* Tablet and desktop: the deck's left rail */}
       <nav
-        aria-label="Till"
+        aria-label={label}
         className="hidden h-dvh w-[5.25rem] shrink-0 flex-col items-center border-r border-ink-700 bg-ink-950 py-3 md:flex"
       >
         <span title={restaurantName}>
@@ -140,13 +154,13 @@ export function TillNav({ items, person, restaurantName, logoUrl = null, badges 
               Signed in as {person.name}, {person.label}
             </span>
           </span>
-          <LockButton className="flex w-full flex-col items-center gap-1 rounded-xl py-2 text-[0.6875rem] leading-none font-medium text-cream-muted transition-colors hover:bg-ink-800 hover:text-cream motion-reduce:transition-none" />
+          <ExitButton exit={exit} className="flex w-full flex-col items-center gap-1 rounded-xl py-2 text-[0.6875rem] leading-none font-medium text-cream-muted transition-colors hover:bg-ink-800 hover:text-cream motion-reduce:transition-none" />
         </div>
       </nav>
 
       {/* Phones: bottom tabs plus a More sheet */}
       <nav
-        aria-label="Till"
+        aria-label={label}
         className="fixed inset-x-0 bottom-0 z-40 border-t border-ink-700 bg-ink-950/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
       >
         <ul className="flex">
@@ -241,7 +255,7 @@ export function TillNav({ items, person, restaurantName, logoUrl = null, badges 
             </ul>
           ) : null}
 
-          <LockButton className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-ink-600 font-semibold hover:bg-ink-800" />
+          <ExitButton exit={exit} className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-ink-600 font-semibold hover:bg-ink-800" />
         </div>
       </dialog>
     </>

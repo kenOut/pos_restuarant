@@ -202,6 +202,21 @@ const tapDish = (page, name) =>
   await audit(manager, "Add table dialog");
   await manager.keyboard.press("Escape");
 
+  // Back office (owner): every screen
+  const office = await device(browser, desktop);
+  await office.goto(`${BASE}/office/login`, { waitUntil: "load" });
+  await office.evaluate(() => [...document.querySelectorAll("button[aria-pressed]")].find((b) => b.textContent.includes("Ama Owner")).click());
+  await sleep(150);
+  await office.keyboard.type("1111");
+  await office.waitForFunction(() => location.pathname === "/office", { timeout: 10000 });
+  await sleep(500);
+  await audit(office, "Back office dashboard");
+  for (const [screen, label] of [["/office/orders", "Back office orders"], ["/office/payments", "Back office payments"], ["/office/reports", "Back office reports"], ["/office/settings", "Back office settings"]]) {
+    await office.goto(`${BASE}${screen}`, { waitUntil: "load" });
+    await sleep(400);
+    await audit(office, label);
+  }
+
   // Phone: ticket open full screen, then the More sheet
   const phone = await device(browser, phoneSize);
   await signIn(phone, "Kofi A.", "3333", "/order");

@@ -4,7 +4,7 @@ Touch-screen point of sale for restaurants in Ghana. The restaurant's main compu
 
 Built with Next.js 16, React 19, SQLite (Drizzle ORM), Tailwind CSS 4, GSAP and Lenis.
 
-**What works today:** marketing website · staff sign-in with PINs · till shell for every role · live floor plan with table statuses, reservations and arrange mode · order screen (menu, ticket, notes, taxes, hold and send) · kitchen display with live updates to every screen · payments (cash with change, mobile money, card, voucher, house account; split bills; tips; manager-approved discounts) and printable receipts · menu, staff and settings management (logo, receipt footer, tax setup) · first-time setup · automatic backups with restore · several branches, each with its own database, and a head office to add, open, rename and close them.
+**What works today:** marketing website · staff sign-in with PINs · till shell for every role · live floor plan with table statuses, reservations and arrange mode · order screen (menu, ticket, notes, taxes, hold and send) · kitchen display with live updates to every screen · payments (cash with change, mobile money, card, voucher, house account; split bills; tips; manager-approved discounts) and printable receipts · menu, staff and settings management (logo, receipt footer, tax setup) · first-time setup · automatic backups with restore · back office for owners and managers (dashboard with live order tracking, orders, payments, reports, CSV downloads) · read-only data API with keys · several branches, each with its own database, and a head office to add, open, rename and close them.
 **Not built yet:** the full Bookings screen, reports (including across branches), offline phone app, silent printing straight to a receipt printer.
 
 ## Requirements
@@ -54,6 +54,37 @@ Notes:
 - **First run:** a new install starts empty and opens setup at `/hq/setup`: the business name; your head office sign-in (email and a password of at least 10 characters); and the first branch, with its name, its address and your PIN there, plus the 16-dish sample menu if you want it. You become that branch's owner. Setup only works while nothing exists. Demo data is not loaded in production unless `ENYO_SEED_DEMO=1` (for trials only).
 - **Upgrading from a single restaurant:** the existing database becomes the first branch where it is (no files move). The first visit to `/hq` asks one of its owners for their PIN, then creates the head office sign-in.
 - The browser address is plain `http://` on the local network. Session cookies are therefore not marked *Secure*; set `ENYO_SECURE_COOKIES=1` if you put the app behind https.
+
+## Back office
+
+Each branch has a back office at `…/b/<branch>/office` (or `osu.yourdomain.com/office`), for **owners and managers**. Sign in on the same screen as the till, with the same PIN. The session is separate from the till's (a till sign-in never opens it) and ends after 30 minutes without use. Head office shows a **Back office** link for each branch, and the till's Settings links to it.
+
+- **Dashboard:** total orders, sales, payments (by method) and the average order for today, yesterday, this week, this month or your own dates, plus **live orders**: every order open now with its table or customer, server, time open, kitchen progress (sent, cooking, ready, served) and total, updating as the tills and kitchen work. Orders open 45 minutes or more are outlined in red.
+- **Orders:** filter by date, status, type and server, or search by order number, table or customer; open an order for its items, bill and payments, and view or reprint its receipt. Download as CSV.
+- **Payments:** filter by date, method, mobile money network and who took it, with totals per method for cashing up. Download as CSV.
+- **Reports:** sales by day, by dish, by category and by server; payment methods; taxes (VAT, NHIL and GETFund, as charged, for returns); busiest hours. Printable, and each one downloads as CSV.
+- **Settings:** the branch's settings (as on the till), plus **API access**.
+
+## Data API
+
+A read-only JSON API per branch, for your central system to collect each branch's records. It can't change anything.
+
+- **Keys:** an owner creates them in the back office, Settings → API access. Name each after what uses it. The key is shown once; only a hash is stored. Keys can be revoked at once and show when they were last used. Send it as `Authorization: Bearer <key>`.
+- **Address:** `https://<branch address>/api/v1`, e.g. `https://osu.yourdomain.com/api/v1` or `http://192.168.1.20:3000/b/osu/api/v1`.
+- **Format:** money in pesewas (GH₵ 1 = 100), times in ISO 8601 (UTC). Errors are `{ "error": { "code", "message" } }` with status 400, 401, 404 or 429.
+- **Limits:** 120 requests a minute per key (then 429 with `Retry-After`). Browsers may only call it from websites listed in API access; servers don't need listing.
+
+| Request | Returns |
+| --- | --- |
+| `GET /api/v1` | The branch the key reads, and the API version |
+| `GET /api/v1/orders` | Orders with lines, taxes and payments, oldest change first. Filters: `updated_since`, `from`, `to` (when opened), `status` (`held`, `open`, `paid`), `limit` (1–200, default 50), `cursor` |
+| `GET /api/v1/orders/{id}` | One order |
+| `GET /api/v1/payments` | Payments, oldest first. Filters: `since`, `from`, `to`, `method`, `limit`, `cursor` |
+| `GET /api/v1/receipts/{orderId}` | The receipt (or bill, before payment) as printed; `?format=html` for a printable 80 mm page |
+| `GET /api/v1/summary` | The dashboard totals. `period` = `today`, `yesterday`, `week`, `month` or `custom` with `from`/`to` as `YYYY-MM-DD` |
+| `GET /api/v1/active-orders` | Orders open now, with kitchen progress |
+
+**Keeping a central copy up to date:** fetch `/orders` page by page (follow `next_cursor` until it's null), remember the newest `updated_at`, then next time ask for `/orders?updated_since=<that time>`. Every change to an order (items, sending, discount, tip, payment, moving table, printing the bill) moves its `updated_at` on. For this the central system must be able to reach the branch's address, for example a branch on Railway or behind your own secure tunnel. A branch on a local network that the internet can't reach will need the later "send to head office" step.
 
 ## Branches and head office
 
@@ -132,11 +163,11 @@ Put these in `.env.local` (ignored by git) or set them in the environment:
 ```bash
 npm run lint        # ESLint
 npm run typecheck   # TypeScript
-npm test            # unit tests (Vitest): taxes, sign-in, roles, orders, tables, kitchen, payments, menu, staff, settings, branches and head office, backups
+npm test            # unit tests (Vitest): taxes, sign-in, roles, orders, tables, kitchen, payments, menu, staff, settings, branches and head office, back office figures and reports, API keys and data, backups
 npm run test:e2e    # browser tests (builds first)
 ```
 
-`npm run test:e2e` builds the app, then runs each suite against its own production server and a fresh throwaway data folder: `landing`, `login`, `shell`, `order`, `kitchen`, `payments`, `admin`, `setup` (on an empty install), `backups`, `tables` (floor plan statuses live on two tills, the table panel, reservations, one order per table, arrange mode with drag and keys), `branches` (head office, separate branch data and sessions, the `/b/` fallback, adding, renaming and closing branches) and `a11y` (axe-core WCAG 2.2 AA on every screen, plus a 44 × 44 px minimum for till controls). Run some suites only with `npm run test:e2e -- order kitchen`, or skip the build with `-- --no-build`. Screenshots go to `e2e/output/`. Set `CHROME_PATH` if Chrome or Edge isn't in the usual place.
+`npm run test:e2e` builds the app, then runs each suite against its own production server and a fresh throwaway data folder: `landing`, `login`, `shell`, `order`, `kitchen`, `payments`, `admin`, `setup` (on an empty install), `backups`, `tables` (floor plan statuses live on two tills, the table panel, reservations, one order per table, arrange mode with drag and keys), `office` (back office sign-in, live tracking, lists, CSV, API keys and every API request, key checks, paging, the request limit and browser access), `branches` (head office, separate branch data and sessions, the `/b/` fallback, adding, renaming and closing branches) and `a11y` (axe-core WCAG 2.2 AA on every screen, plus a 44 × 44 px minimum for till controls). Run some suites only with `npm run test:e2e -- order kitchen`, or skip the build with `-- --no-build`. Screenshots go to `e2e/output/`. Set `CHROME_PATH` if Chrome or Edge isn't in the usual place.
 
 ## Project layout
 
@@ -144,10 +175,13 @@ npm run test:e2e    # browser tests (builds first)
 src/proxy.ts             works out the branch from the subdomain or /b/<address>
 src/app/                 website (/), choose a branch (/login)
 src/app/hq/              head office: setup, sign-in, claim (upgrades), dashboard, add a branch
+src/app/b/[branch]/office/  a branch's back office (dashboard, orders, payments, reports, settings, CSV downloads)
+src/app/b/[branch]/api/v1/  the data API
 src/app/b/[branch]/      a branch: sign-in (/login), till (/tables, /order, /kitchen, /pay/[order], /menu, /staff, /settings), receipt (/receipt/[order]), live events (/api/events), logo (/api/logo/[file]), backup download
 src/components/landing/  website sections, device mockups, scroll animations
 src/components/auth/     sign-in screen
 src/components/till/     till shell (sidebar, phone tabs, live connection)
+src/components/office/   back office screens and API access
 src/components/tables/   floor plan, table panel and arrange mode
 src/components/order/    order screen
 src/components/kitchen/  kitchen display
@@ -156,6 +190,7 @@ src/components/hq/       head office forms and branch controls
 src/components/menu/, staff/, settings/, admin/   management screens and their shared pieces
 src/components/react-bits/  adapted React Bits text and reveal animations
 src/db/                  branch and head office schemas, connections, migrations runner, demo seed
+src/lib/office/, api/    back office figures and reports; API keys, data and HTTP handling
 src/lib/tenancy/         branches: registry, request context, addresses
 src/lib/                 business rules (auth, orders, kitchen, tax, money) with unit tests
 drizzle/                 SQL migrations for branch databases
@@ -179,6 +214,6 @@ Migrations are applied automatically when the app starts (and, in development, a
 ## Notes
 
 - GSAP is installed from GitHub (`github:greensock/GSAP#3.15.0`); `.npmrc` allows that one direct git dependency, so `npm install` needs access to github.com.
-- Staff PINs and head office passwords are stored only as Argon2id hashes; session tokens only as SHA-256 hashes. Five wrong head office passwords lock that sign-in for 15 minutes.
+- Staff PINs and head office passwords are stored only as Argon2id hashes; session tokens and API keys only as SHA-256 hashes. Five wrong head office passwords lock that sign-in for 15 minutes.
 - Every page is sent with headers that stop other sites framing it, stop content-type guessing and limit referrer information.
 - `npm audit` reports issues only in development tools (ESLint's Next config and drizzle-kit's bundled esbuild); none of them are part of the running app.

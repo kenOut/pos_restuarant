@@ -351,6 +351,7 @@ function writeOrder(db: Db, actor: Actor, input: SaveOrderInput, checked: Checke
           guests,
           customerName,
           staffId: actor.id,
+          createdAt: now,
           updatedAt: now,
         })
         .run();

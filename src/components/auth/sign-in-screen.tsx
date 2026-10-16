@@ -10,9 +10,17 @@ import { TillClock } from "./till-clock";
 const PIN_LENGTH = 4;
 const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "clear", "0", "back"] as const;
 
-type Props = { restaurantName: string; logoUrl?: string | null; tiles: SignInTile[] };
+type Props = {
+  restaurantName: string;
+  logoUrl?: string | null;
+  tiles: SignInTile[];
+  /** Signs in and redirects; the till by default, the back office passes its own. */
+  action?: (previous: SignInState, formData: FormData) => Promise<SignInState>;
+  /** Shown under the restaurant name, e.g. "Back office". */
+  area?: string;
+};
 
-export function SignInScreen({ restaurantName, logoUrl = null, tiles }: Props) {
+export function SignInScreen({ restaurantName, logoUrl = null, tiles, action = signIn, area }: Props) {
   const dotsRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -27,7 +35,7 @@ export function SignInScreen({ restaurantName, logoUrl = null, tiles }: Props) {
   };
 
   const [state, formAction, pending] = useActionState(async (previous: SignInState, formData: FormData) => {
-    const result = await signIn(previous, formData);
+    const result = await action(previous, formData);
     // Only reached on failure; success redirects.
     setPin("");
     shake();
@@ -88,7 +96,7 @@ export function SignInScreen({ restaurantName, logoUrl = null, tiles }: Props) {
         <RestaurantMark className="size-11" logoUrl={logoUrl} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-lg font-semibold">{restaurantName}</p>
-          <p className="text-sm text-cream-faint">ENYO POS</p>
+          <p className="text-sm text-cream-faint">{area ? `ENYO POS · ${area}` : "ENYO POS"}</p>
         </div>
         <TillClock />
       </header>

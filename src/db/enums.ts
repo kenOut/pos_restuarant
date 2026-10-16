@@ -20,6 +20,9 @@ export type TicketStatus = (typeof TICKET_STATUSES)[number];
 export const PAYMENT_METHODS = ["cash", "card", "mobile_money", "voucher", "house_account"] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
+export const SESSION_KINDS = ["till", "office"] as const;
+export type SessionKind = (typeof SESSION_KINDS)[number];
+
 export const TABLE_SHAPES = ["round", "square"] as const;
 export type TableShape = (typeof TABLE_SHAPES)[number];
 

@@ -12,9 +12,9 @@ export type ReadyDetail = { orderNumber: number; label: string };
  * computer's live events and refetches the page's data when anything changes.
  * Shows a banner if the connection drops; EventSource reconnects on its own.
  */
-export function TillLive() {
+export function TillLive({ eventsPath = "/api/events" }: { eventsPath?: string }) {
   const router = useRouter();
-  const eventsUrl = useBranchPath()("/api/events");
+  const eventsUrl = useBranchPath()(eventsPath);
   const [lost, setLost] = useState(false);
 
   useEffect(() => {
