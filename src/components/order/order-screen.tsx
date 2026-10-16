@@ -10,6 +10,7 @@ import { READY_EVENT, type ReadyDetail } from "@/components/till/till-live";
 import {
   addItem,
   changeQuantity,
+  draftForTable,
   draftFromOrder,
   draftTotals,
   emptyDraft,
@@ -21,6 +22,7 @@ import {
   type Draft,
 } from "@/lib/orders/draft";
 import type { MenuEntry, OrderDetail, OrderSummary } from "@/lib/orders/service";
+import type { TableOption } from "@/lib/tables/service";
 import { formatCedis } from "@/lib/money";
 import type { TaxConfig } from "@/lib/tax-config";
 import { MenuGrid } from "./menu-grid";
@@ -31,9 +33,13 @@ import { Toast } from "./toast";
 type Props = {
   menu: MenuEntry[];
   openOrders: OrderSummary[];
+  /** Floor plan tables for dine-in; empty when the floor plan has none yet (a table is typed instead). */
+  tables?: TableOption[];
   staffName: string;
   /** Order to show on arrival (e.g. back from the pay screen). */
   initialOrder?: OrderDetail | null;
+  /** A free table picked on the floor plan: start a dine-in order for it. */
+  initialTable?: { id: string; label: string } | null;
   taxConfig: TaxConfig;
   /** Owners and managers can mark dishes sold out from here. */
   canMarkSoldOut?: boolean;
@@ -41,10 +47,10 @@ type Props = {
 
 const ALL = "All";
 
-export function OrderScreen({ menu, openOrders, staffName, initialOrder = null, taxConfig, canMarkSoldOut = false }: Props) {
+export function OrderScreen({ menu, openOrders, tables = [], staffName, initialOrder = null, initialTable = null, taxConfig, canMarkSoldOut = false }: Props) {
   const router = useRouter();
   const branchPath = useBranchPath();
-  const [draft, setDraft] = useState<Draft>(() => (initialOrder ? draftFromOrder(initialOrder) : emptyDraft()));
+  const [draft, setDraft] = useState<Draft>(() => (initialOrder ? draftFromOrder(initialOrder) : initialTable ? draftForTable(initialTable) : emptyDraft()));
   const [category, setCategory] = useState(ALL);
   const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -101,6 +107,8 @@ export function OrderScreen({ menu, openOrders, staffName, initialOrder = null, 
       }
       const { number } = result.order;
       setDraft(emptyDraft());
+      // Arrived from the floor plan (?table= or ?open=): reloading shouldn't bring that order back.
+      if (window.location.search) window.history.replaceState(null, "", branchPath("/order"));
       setTicketOpen(false);
       setToast({
         id: Date.now(),
@@ -262,7 +270,10 @@ export function OrderScreen({ menu, openOrders, staffName, initialOrder = null, 
         pending={pending}
         error={error}
         onType={(type) => update((d) => setDetails(d, { type }))}
+        tables={tables}
         onTableLabel={(tableLabel) => update((d) => setDetails(d, { tableLabel }))}
+        onTable={(table) => update((d) => setDetails(d, { tableId: table?.id ?? null, tableLabel: table?.label ?? "" }))}
+        onGuests={(guests) => update((d) => setDetails(d, { guests }))}
         onCustomerName={(customerName) => update((d) => setDetails(d, { customerName }))}
         onQuantity={(key, delta) => update((d) => changeQuantity(d, key, delta))}
         onNote={(key, note) => update((d) => setNote(d, key, note))}

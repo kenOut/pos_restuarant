@@ -3,6 +3,11 @@ const path = require("path");
 const { launch } = require("./lib.cjs");
 const [BASE, OUT] = process.argv.slice(2);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+/** Dine-in: choose a floor plan table by its name in the ticket's table list. */
+async function pickTable(page, label) {
+  const value = await page.$eval("aside select[name=table]", (s, l) => [...s.options].find((o) => o.textContent.startsWith(`${l} ·`))?.value, label);
+  await page.select("aside select[name=table]", value);
+}
 let failures = 0;
 const check = (name, ok, detail = "") => {
   console.log(`${ok ? "PASS" : "FAIL"}  ${name}${detail !== "" ? `  (${detail})` : ""}`);
@@ -113,8 +118,8 @@ const waitToastGone = (page) => page.waitForFunction(() => !document.querySelect
   await clickText(till, "Dine-in", "aside");
   await clickText(till, "Send to kitchen", "aside");
   await sleep(1200);
-  check("dine-in without a table is refused", (await ticketText(till)).includes("Enter a table for dine-in."));
-  await till.type("aside input", "T7");
+  check("dine-in without a table is refused", (await ticketText(till)).includes("Choose a table for dine-in."));
+  await pickTable(till, "T7");
   await clickText(till, "Send to kitchen", "aside");
   check("send confirms with order number and count", (await toastText(till)) === "Order #1001 sent to the kitchen · 5 items", await toastText(till));
   await sleep(300);

@@ -73,16 +73,13 @@ async function signIn(page, name, pin, landing) {
   await page.waitForFunction((l) => location.pathname === l, { timeout: 10000 }, landing);
   await sleep(700);
 }
-const click = (page, text, root = "body") =>
-  page.evaluate(
-    (t, r) => {
-      const b = [...document.querySelector(r).querySelectorAll("button, a")].find((x) => x.getClientRects().length > 0 && x.textContent.trim().startsWith(t) && !x.disabled);
-      if (!b) throw new Error(`no button "${t}"`);
-      b.click();
-    },
-    text,
-    root
-  );
+/** Clicks the first visible, enabled button or link whose text starts with `text`, waiting up to 8 s for it. */
+async function click(page, text, root = "body") {
+  const find = (t, r) => [...(document.querySelector(r)?.querySelectorAll("button, a") ?? [])].find((x) => x.getClientRects().length > 0 && x.textContent.trim().startsWith(t) && !x.disabled);
+  const ready = await page.waitForFunction(find, { timeout: 8000, polling: 100 }, text, root).then(() => true, () => false);
+  if (!ready) throw new Error(`no button "${text}"`);
+  await page.evaluate((t, r, f) => new Function("t", "r", `return (${f})(t, r)`)(t, r).click(), text, root, find.toString());
+}
 const tapDish = (page, name) =>
   page.evaluate((n) => [...document.querySelectorAll("section ul.grid button")].find((x) => x.querySelector("span")?.textContent === n).click(), name);
 
@@ -188,6 +185,23 @@ const tapDish = (page, name) =>
   await sleep(300);
   await audit(owner, "Restore backup dialog");
 
+  // Floor plan (Phase 10): the plan, a table's panel, and arrange mode
+  await manager.goto(`${BASE}/tables`, { waitUntil: "load" });
+  await sleep(500);
+  await audit(manager, "Floor plan");
+  await manager.click("[data-table='T1']");
+  await sleep(300);
+  await audit(manager, "Table panel");
+  await manager.keyboard.press("Escape");
+  await sleep(200);
+  await click(manager, "Arrange");
+  await sleep(200);
+  await audit(manager, "Arrange tables");
+  await click(manager, "Add table");
+  await sleep(300);
+  await audit(manager, "Add table dialog");
+  await manager.keyboard.press("Escape");
+
   // Phone: ticket open full screen, then the More sheet
   const phone = await device(browser, phoneSize);
   await signIn(phone, "Kofi A.", "3333", "/order");
@@ -201,6 +215,10 @@ const tapDish = (page, name) =>
   await click(phone, "More");
   await sleep(300);
   await audit(phone, "Phone More sheet");
+  await phone.keyboard.press("Escape");
+  await phone.goto(`${BASE}/tables`, { waitUntil: "load" });
+  await sleep(500);
+  await audit(phone, "Phone floor plan");
 
   await browser.close();
   console.log(failures ? `\n${failures} check(s) FAILED` : "\nAll checks passed");

@@ -41,7 +41,7 @@ type NavDefinition = {
 /** Till sections in the deck's sidebar order, with who may see each. */
 const NAV: readonly NavDefinition[] = [
   { id: "home", label: "Home", icon: "home", roles: FRONT_OF_HOUSE },
-  { id: "tables", label: "Tables", icon: "tables", roles: FRONT_OF_HOUSE },
+  { id: "tables", label: "Tables", icon: "tables", roles: FRONT_OF_HOUSE, href: "/tables" },
   { id: "order", label: "Order", icon: "order", roles: FRONT_OF_HOUSE, href: "/order" },
   { id: "kitchen", label: "Kitchen", icon: "kitchen", roles: EVERYONE, href: "/kitchen" },
   { id: "orders", label: "Orders", icon: "orders", roles: FRONT_OF_HOUSE },
@@ -67,7 +67,7 @@ export function navFor(role: StaffRole): NavItem[] {
   }));
 }
 
-export type TillArea = Extract<NavId, "order" | "kitchen" | "menu" | "staff" | "settings">;
+export type TillArea = Extract<NavId, "tables" | "order" | "kitchen" | "menu" | "staff" | "settings">;
 
 export function canAccess(role: StaffRole, area: TillArea): boolean {
   return NAV.some((n) => n.id === area && n.roles.includes(role));

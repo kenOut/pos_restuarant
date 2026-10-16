@@ -21,10 +21,10 @@ export default async function ReceiptPage({
   searchParams,
 }: {
   params: Promise<{ orderId: string }>;
-  searchParams: Promise<{ print?: string }>;
+  searchParams: Promise<{ print?: string; from?: string }>;
 }) {
   const person = await requireStaff("order");
-  const [{ orderId }, { print }] = await Promise.all([params, searchParams]);
+  const [{ orderId }, { print, from }] = await Promise.all([params, searchParams]);
   const view = getPaymentView((await getDb()), person.restaurantId, orderId);
   if (!view) notFound();
 
@@ -35,7 +35,7 @@ export default async function ReceiptPage({
 
   return (
     <main className="min-h-dvh bg-ink-950 px-4 py-6 print:bg-white print:p-0">
-      <PrintControls autoPrint={print === "1"} backHref={await branchPath(paid ? "/order" : `/pay/${order.id}`)} />
+      <PrintControls autoPrint={print === "1"} backHref={await branchPath(from === "tables" ? "/tables" : paid ? "/order" : `/pay/${order.id}`)} />
       <article
         aria-label={paid ? "Receipt" : "Bill"}
         className="mx-auto mt-4 w-[80mm] max-w-full bg-white px-4 py-5 font-mono text-[12px] leading-snug text-black shadow-xl print:mt-0 print:w-full print:shadow-none"

@@ -14,6 +14,7 @@ import { menuCategories, menuItems, restaurants, staff } from "@/db/schema";
 import { insertSampleMenu, seedDemoData } from "@/db/seed";
 import { PIN_PATTERN } from "@/lib/auth/service";
 import { initialsFor } from "@/lib/staff/service";
+import { ensureDefaultAreas } from "@/lib/tables/service";
 
 export type { Branch };
 
@@ -144,6 +145,7 @@ export async function createBranch(
       tx.insert(restaurants).values({ id, name }).run();
       tx.insert(staff).values({ id: randomUUID(), restaurantId: id, name: leadName, initials: initialsFor(leadName), role: "owner", jobTitle: "Branch lead", pinHash }).run();
       if (input.menu?.kind === "sample") insertSampleMenu(tx as unknown as Db, id);
+      ensureDefaultAreas(tx as unknown as Db, id); // Main hall, Terrace and Bar, ready for tables
     });
     if (copyFrom) copyMenu(openBranch(copyFrom), db, id);
   } finally {

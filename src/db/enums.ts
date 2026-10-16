@@ -20,5 +20,8 @@ export type TicketStatus = (typeof TICKET_STATUSES)[number];
 export const PAYMENT_METHODS = ["cash", "card", "mobile_money", "voucher", "house_account"] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 
+export const TABLE_SHAPES = ["round", "square"] as const;
+export type TableShape = (typeof TABLE_SHAPES)[number];
+
 export const MOMO_NETWORKS = ["mtn", "telecel", "at"] as const;
 export type MomoNetwork = (typeof MOMO_NETWORKS)[number];

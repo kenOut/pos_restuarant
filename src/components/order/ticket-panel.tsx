@@ -8,6 +8,7 @@ import { taxLinesForDisplay } from "@/lib/payments/bill";
 import type { TaxConfig } from "@/lib/tax-config";
 import { LABEL_MAX, NOTE_MAX, ORDER_TYPE_LABELS, QUICK_NOTES } from "@/lib/orders/shared";
 import { formatAmount, formatCedis } from "@/lib/money";
+import type { TableOption } from "@/lib/tables/service";
 
 type Props = {
   draft: Draft;
@@ -16,7 +17,11 @@ type Props = {
   pending: boolean;
   error: string | null;
   onType: (type: OrderType) => void;
+  /** Floor plan tables; when there are some, dine-in picks one instead of typing. */
+  tables: TableOption[];
   onTableLabel: (value: string) => void;
+  onTable: (table: TableOption | null) => void;
+  onGuests: (value: string) => void;
   onCustomerName: (value: string) => void;
   onQuantity: (key: string, delta: number) => void;
   onNote: (key: string, note: string) => void;
@@ -85,21 +90,72 @@ export function TicketPanel(props: Props) {
             );
           })}
         </div>
-        <div>
-          <label htmlFor={`${fieldId}-detail`} className="text-sm text-cream-muted">
-            {detail.label}
-          </label>
-          <input
-            id={`${fieldId}-detail`}
-            value={detail.field === "tableLabel" ? draft.tableLabel : draft.customerName}
-            onChange={(e) => (detail.field === "tableLabel" ? props.onTableLabel(e.target.value) : props.onCustomerName(e.target.value))}
-            placeholder={detail.placeholder}
-            maxLength={LABEL_MAX}
-            autoComplete="off"
-            aria-required={detail.required}
-            className="mt-1 h-11 w-full rounded-xl border border-ink-600 bg-ink-900 px-3 text-cream placeholder:text-cream-faint/70 focus:border-amber focus:outline-none"
-          />
-        </div>
+        {draft.type === "dine_in" && props.tables.length > 0 ? (
+          <div className="grid grid-cols-[1fr_6rem] gap-2">
+            <div>
+              <label htmlFor={`${fieldId}-table`} className="text-sm text-cream-muted">
+                Table
+              </label>
+              <select
+                id={`${fieldId}-table`}
+                name="table"
+                value={draft.tableId ?? ""}
+                onChange={(e) => props.onTable(props.tables.find((t) => t.id === e.target.value) ?? null)}
+                aria-required
+                className="mt-1 h-11 w-full rounded-xl border border-ink-600 bg-ink-900 px-2 text-cream focus:border-amber focus:outline-none"
+              >
+                <option value="">Choose a table</option>
+                {[...new Set(props.tables.map((t) => t.area))].map((area) => (
+                  <optgroup key={area} label={area}>
+                    {props.tables
+                      .filter((t) => t.area === area)
+                      .map((t) => {
+                        // A table with another order open can't take a second one.
+                        const taken = t.orderId !== null && t.orderId !== draft.orderId;
+                        return (
+                          <option key={t.id} value={t.id} disabled={taken}>
+                            {t.label} · {t.seats} seats{taken ? " · in use" : t.reservedTime ? ` · reserved ${t.reservedTime}` : ""}
+                          </option>
+                        );
+                      })}
+                  </optgroup>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor={`${fieldId}-guests`} className="text-sm text-cream-muted">
+                Guests
+              </label>
+              <input
+                id={`${fieldId}-guests`}
+                name="guests"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={99}
+                value={draft.guests}
+                onChange={(e) => props.onGuests(e.target.value)}
+                className="mt-1 h-11 w-full rounded-xl border border-ink-600 bg-ink-900 px-3 text-cream focus:border-amber focus:outline-none"
+              />
+            </div>
+          </div>
+        ) : (
+          <div>
+            <label htmlFor={`${fieldId}-detail`} className="text-sm text-cream-muted">
+              {detail.label}
+            </label>
+            <input
+              id={`${fieldId}-detail`}
+              value={detail.field === "tableLabel" ? draft.tableLabel : draft.customerName}
+              onChange={(e) => (detail.field === "tableLabel" ? props.onTableLabel(e.target.value) : props.onCustomerName(e.target.value))}
+              placeholder={detail.placeholder}
+              maxLength={LABEL_MAX}
+              autoComplete="off"
+              aria-required={detail.required}
+              className="mt-1 h-11 w-full rounded-xl border border-ink-600 bg-ink-900 px-3 text-cream placeholder:text-cream-faint/70 focus:border-amber focus:outline-none"
+            />
+          </div>
+        )}
       </div>
 
       {/* Lines */}

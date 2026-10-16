@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import type { TaxConfig } from "@/lib/tax-config";
-import { MOMO_NETWORKS, ORDER_STATUSES, ORDER_TYPES, PAYMENT_METHODS, STAFF_ROLES, STATIONS, TICKET_STATUSES } from "./enums";
+import { MOMO_NETWORKS, ORDER_STATUSES, ORDER_TYPES, PAYMENT_METHODS, STAFF_ROLES, STATIONS, TABLE_SHAPES, TICKET_STATUSES } from "./enums";
 
 export * from "./enums";
 
@@ -102,6 +102,42 @@ export const menuCategories = sqliteTable(
 );
 
 
+/** Parts of the floor plan, e.g. Main hall, Terrace, Bar. */
+export const floorAreas = sqliteTable(
+  "floor_areas",
+  {
+    id: text("id").primaryKey(),
+    restaurantId: text("restaurant_id")
+      .notNull()
+      .references(() => restaurants.id),
+    name: text("name").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (t) => [uniqueIndex("floor_areas_name_idx").on(t.restaurantId, t.name)]
+);
+
+export const diningTables = sqliteTable(
+  "dining_tables",
+  {
+    id: text("id").primaryKey(),
+    restaurantId: text("restaurant_id")
+      .notNull()
+      .references(() => restaurants.id),
+    areaId: text("area_id")
+      .notNull()
+      .references(() => floorAreas.id),
+    label: text("label").notNull(),
+    seats: integer("seats").notNull(),
+    shape: text("shape", { enum: TABLE_SHAPES }).notNull().default("square"),
+    /** Top-left corner on the floor plan grid, in cells. */
+    x: integer("x").notNull().default(0),
+    y: integer("y").notNull().default(0),
+    /** A simple "reserved at 16:00" marker, kept until the guests are seated or it's cleared. */
+    reservedTime: text("reserved_time"),
+    reservedName: text("reserved_name"),
+  },
+  (t) => [uniqueIndex("dining_tables_label_idx").on(t.restaurantId, t.label), index("dining_tables_area_idx").on(t.areaId)]
+);
 
 export const orders = sqliteTable(
   "orders",
@@ -114,7 +150,12 @@ export const orders = sqliteTable(
     number: integer("number").notNull(),
     type: text("type", { enum: ORDER_TYPES }).notNull(),
     status: text("status", { enum: ORDER_STATUSES }).notNull(),
+    /** The table's label when ordered, kept for tickets and receipts even if the table is renamed or removed. */
     tableLabel: text("table_label"),
+    tableId: text("table_id").references(() => diningTables.id, { onDelete: "set null" }),
+    guests: integer("guests"),
+    /** Set when the bill is printed (the table is waiting to pay); cleared if the order changes. */
+    billPrintedAt: integer("bill_printed_at", { mode: "timestamp_ms" }),
     customerName: text("customer_name"),
     /** Staff member who opened the order. */
     staffId: text("staff_id")
@@ -141,6 +182,8 @@ export const orders = sqliteTable(
   (t) => [
     uniqueIndex("orders_number_idx").on(t.restaurantId, t.number),
     index("orders_status_idx").on(t.restaurantId, t.status),
+    // A table has at most one order open at a time.
+    uniqueIndex("orders_open_table_idx").on(t.tableId).where(sql`${t.status} in ('held', 'open') and ${t.tableId} is not null`),
   ]
 );
 
@@ -226,3 +269,5 @@ export type Restaurant = typeof restaurants.$inferSelect;
 export type Order = typeof orders.$inferSelect;
 export type OrderLine = typeof orderLines.$inferSelect;
 export type Payment = typeof payments.$inferSelect;
+export type FloorArea = typeof floorAreas.$inferSelect;
+export type DiningTable = typeof diningTables.$inferSelect;

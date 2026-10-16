@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { openDatabase, type Db } from "@/db/client";
+import { diningTables } from "@/db/schema";
 import { DEMO_RESTAURANT_ID, seedDemoData } from "@/db/seed";
+import { eq } from "drizzle-orm";
 import { listOpenOrders, saveOrder } from "@/lib/orders/service";
 import { bumpTicket, countActiveTickets, getKitchenBoard, recallLastTicket, serveTicket, startTicket } from "./service";
 
@@ -16,7 +18,8 @@ function send(lines: { menuItemId: string; quantity: number; note?: string }[], 
       orderId: null,
       version: null,
       type: "dine_in",
-      tableLabel,
+      tableId: db.select({ id: diningTables.id }).from(diningTables).where(eq(diningTables.label, tableLabel)).get()!.id,
+      tableLabel: "",
       customerName: "",
       lines: lines.map((l) => ({ note: "", ...l })),
       send: true,

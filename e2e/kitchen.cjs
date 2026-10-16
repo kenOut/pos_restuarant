@@ -4,6 +4,11 @@ const { launch } = require("./lib.cjs");
 const [BASE, OUT, DB_PATH] = process.argv.slice(2);
 const Database = require("better-sqlite3");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+/** Dine-in: choose a floor plan table by its name in the ticket's table list. */
+async function pickTable(page, label) {
+  const value = await page.$eval("aside select[name=table]", (s, l) => [...s.options].find((o) => o.textContent.startsWith(`${l} ·`))?.value, label);
+  await page.select("aside select[name=table]", value);
+}
 let failures = 0;
 const check = (name, ok, detail = "") => {
   console.log(`${ok ? "PASS" : "FAIL"}  ${name}${detail !== "" ? `  (${detail})` : ""}`);
@@ -103,7 +108,7 @@ const waitFor = (page, fn, arg, timeout = 4000) => page.waitForFunction(fn, { ti
   await click(till, "Extra pepper", "aside");
   await click(till, "Done", "aside");
   await click(till, "Dine-in", "aside");
-  await till.type("aside input", "T7");
+  await pickTable(till, "T7");
   const sentAt = Date.now();
   await click(till, "Send to kitchen", "aside");
 
@@ -176,7 +181,7 @@ const waitFor = (page, fn, arg, timeout = 4000) => page.waitForFunction(fn, { ti
   ]) {
     await tapDish(till, dish);
     await click(till, "Dine-in", "aside");
-    await till.type("aside input", table);
+    await pickTable(till, table);
     await click(till, "Send to kitchen", "aside");
     await waitFor(till, () => document.querySelector("#order-title")?.textContent === "New order");
     await sleep(400);

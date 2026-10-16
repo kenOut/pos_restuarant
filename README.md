@@ -4,8 +4,8 @@ Touch-screen point of sale for restaurants in Ghana. The restaurant's main compu
 
 Built with Next.js 16, React 19, SQLite (Drizzle ORM), Tailwind CSS 4, GSAP and Lenis.
 
-**What works today:** marketing website · staff sign-in with PINs · till shell for every role · order screen (menu, ticket, notes, taxes, hold and send) · kitchen display with live updates to every screen · payments (cash with change, mobile money, card, voucher, house account; split bills; tips; manager-approved discounts) and printable receipts · menu, staff and settings management (logo, receipt footer, tax setup) · first-time setup · automatic backups with restore · several branches, each with its own database, and a head office to add, open, rename and close them.
-**Not built yet:** floor plan, reports (including across branches), offline phone app, silent printing straight to a receipt printer.
+**What works today:** marketing website · staff sign-in with PINs · till shell for every role · live floor plan with table statuses, reservations and arrange mode · order screen (menu, ticket, notes, taxes, hold and send) · kitchen display with live updates to every screen · payments (cash with change, mobile money, card, voucher, house account; split bills; tips; manager-approved discounts) and printable receipts · menu, staff and settings management (logo, receipt footer, tax setup) · first-time setup · automatic backups with restore · several branches, each with its own database, and a head office to add, open, rename and close them.
+**Not built yet:** the full Bookings screen, reports (including across branches), offline phone app, silent printing straight to a receipt printer.
 
 ## Requirements
 
@@ -99,7 +99,9 @@ Five wrong PINs in a row lock that person out for 5 minutes. **Lock** (bottom of
 
 ## How it works
 
-- **Orders:** tap dishes to build a ticket, choose dine-in (table required), takeaway or delivery (name and phone required), add notes, then **Hold** (save without sending) or **Send to kitchen**. Reopen an order from **Open orders** to add more; lines already sent are locked and new ones go to the kitchen as a separate ticket (hold and fire).
+- **Floor plan (Tables):** every table in its area (Main hall, Terrace and Bar to start), coloured by status: **free**, **ordering** (an order is open, nothing sent yet), **eating** (food has gone to the kitchen), **waiting to pay** (the bill has been printed) or **reserved** (with a time). Tables show their guests and how long they've been seated, and change on every till within a second. Tap a table for its panel: **Start an order** (or **Seat guests** at a reserved table), **Reserve** with a time and name, and for an occupied table its order and total, **Add items**, **Print bill**, **Move** to a free table, **Change server** and **Take payment**. Phones show the tables as a list.
+- **Arrange (owners and managers):** add, rename and remove areas; add tables with a name, seats and a round or square shape; drag them into place on the grid, or select one and use the arrow keys. A table with an order open can't be removed; past orders keep its name.
+- **Orders:** tap dishes to build a ticket, choose dine-in (pick a table from the floor plan, and the number of guests; a table can only have one open order), takeaway or delivery (name and phone required), add notes, then **Hold** (save without sending) or **Send to kitchen**. Reopen an order from **Open orders** to add more; lines already sent are locked and new ones go to the kitchen as a separate ticket (hold and fire).
 - **Prices and taxes** always come from the database. VAT 15%, NHIL 2.5% and GETFund 2.5% are each rounded to the pesewa and the total is the sum of the rounded lines, so a receipt always adds up (GH₵ 145.00 → 174.01). Each order line keeps the name and price it was sold at.
 - **Kitchen display:** tickets oldest first with a timer that turns amber at 10 minutes and red at 15. **Start** → cooking, **Bump** → ready-to-serve strip, tap the chip once served, **Recall last** to bring back the last bumped ticket. Filter by station.
 - **Payments:** **Pay** holds any changes and opens the pay screen. Take cash (with change), mobile money (MTN MoMo, Telecel Cash, AT Money, with the customer's number), card, voucher or house account, in one go or split (½, ⅓, ¼ or any amount, mixing methods). A discount comes off before tax and needs a reason; cashiers and servers need an owner or manager to enter their PIN. Tips are added after tax and aren't taxed. Any items not yet sent go to the kitchen with the first payment. Once money is taken the order, discount and tip are locked; when the balance reaches zero the order closes and its subtotal, taxes and total are frozen. ENYO POS records payments taken on your own terminals and phones; it doesn't process them.
@@ -130,11 +132,11 @@ Put these in `.env.local` (ignored by git) or set them in the environment:
 ```bash
 npm run lint        # ESLint
 npm run typecheck   # TypeScript
-npm test            # unit tests (Vitest): taxes, sign-in, roles, orders, kitchen, payments, menu, staff, settings, branches and head office, backups
+npm test            # unit tests (Vitest): taxes, sign-in, roles, orders, tables, kitchen, payments, menu, staff, settings, branches and head office, backups
 npm run test:e2e    # browser tests (builds first)
 ```
 
-`npm run test:e2e` builds the app, then runs each suite against its own production server and a fresh throwaway data folder: `landing`, `login`, `shell`, `order`, `kitchen`, `payments`, `admin`, `setup` (on an empty install), `backups`, `branches` (head office, separate branch data and sessions, the `/b/` fallback, adding, renaming and closing branches) and `a11y` (axe-core WCAG 2.2 AA on every screen, plus a 44 × 44 px minimum for till controls). Run some suites only with `npm run test:e2e -- order kitchen`, or skip the build with `-- --no-build`. Screenshots go to `e2e/output/`. Set `CHROME_PATH` if Chrome or Edge isn't in the usual place.
+`npm run test:e2e` builds the app, then runs each suite against its own production server and a fresh throwaway data folder: `landing`, `login`, `shell`, `order`, `kitchen`, `payments`, `admin`, `setup` (on an empty install), `backups`, `tables` (floor plan statuses live on two tills, the table panel, reservations, one order per table, arrange mode with drag and keys), `branches` (head office, separate branch data and sessions, the `/b/` fallback, adding, renaming and closing branches) and `a11y` (axe-core WCAG 2.2 AA on every screen, plus a 44 × 44 px minimum for till controls). Run some suites only with `npm run test:e2e -- order kitchen`, or skip the build with `-- --no-build`. Screenshots go to `e2e/output/`. Set `CHROME_PATH` if Chrome or Edge isn't in the usual place.
 
 ## Project layout
 
@@ -142,10 +144,11 @@ npm run test:e2e    # browser tests (builds first)
 src/proxy.ts             works out the branch from the subdomain or /b/<address>
 src/app/                 website (/), choose a branch (/login)
 src/app/hq/              head office: setup, sign-in, claim (upgrades), dashboard, add a branch
-src/app/b/[branch]/      a branch: sign-in (/login), till (/order, /kitchen, /pay/[order], /menu, /staff, /settings), receipt (/receipt/[order]), live events (/api/events), logo (/api/logo/[file]), backup download
+src/app/b/[branch]/      a branch: sign-in (/login), till (/tables, /order, /kitchen, /pay/[order], /menu, /staff, /settings), receipt (/receipt/[order]), live events (/api/events), logo (/api/logo/[file]), backup download
 src/components/landing/  website sections, device mockups, scroll animations
 src/components/auth/     sign-in screen
 src/components/till/     till shell (sidebar, phone tabs, live connection)
+src/components/tables/   floor plan, table panel and arrange mode
 src/components/order/    order screen
 src/components/kitchen/  kitchen display
 src/components/pay/      pay screen, discount dialog, receipt controls

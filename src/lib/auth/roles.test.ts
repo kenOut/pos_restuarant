@@ -25,6 +25,7 @@ describe("navFor", () => {
   it("links only the screens that exist so far", () => {
     const linked = navFor("owner").filter((n) => n.href).map((n) => [n.id, n.href]);
     expect(linked).toEqual([
+      ["tables", "/tables"],
       ["order", "/order"],
       ["kitchen", "/kitchen"],
       ["menu", "/menu"],

@@ -23,7 +23,11 @@ export type Draft = {
   /** Who opened the order; null for a new one (it'll be the signed-in person). */
   staffName: string | null;
   type: OrderType;
+  /** Floor plan table for dine-in, or null (typed tableLabel when there's no floor plan). */
+  tableId: string | null;
   tableLabel: string;
+  /** Guests at the table, as typed ("" for not given). */
+  guests: string;
   customerName: string;
   /** Already in the kitchen: shown, but locked. */
   sent: TicketLine[];
@@ -45,7 +49,9 @@ export function emptyDraft(): Draft {
     number: null,
     staffName: null,
     type: "takeaway",
+    tableId: null,
     tableLabel: "",
+    guests: "",
     customerName: "",
     sent: [],
     lines: [],
@@ -60,7 +66,9 @@ export function draftFromOrder(order: OrderDetail): Draft {
     number: order.number,
     staffName: order.staffName,
     type: order.type,
+    tableId: order.tableId,
     tableLabel: order.tableLabel ?? "",
+    guests: order.guests ? String(order.guests) : "",
     customerName: order.customerName ?? "",
     sent: order.lines.filter((l) => l.sentAt !== null),
     lines: order.lines
@@ -96,7 +104,12 @@ export function setNote(draft: Draft, key: string, note: string): Draft {
   return { ...draft, lines, dirty: true };
 }
 
-export function setDetails(draft: Draft, details: Partial<Pick<Draft, "type" | "tableLabel" | "customerName">>): Draft {
+/** A new dine-in ticket for a table picked on the floor plan. */
+export function draftForTable(table: { id: string; label: string }): Draft {
+  return { ...emptyDraft(), type: "dine_in", tableId: table.id, tableLabel: table.label };
+}
+
+export function setDetails(draft: Draft, details: Partial<Pick<Draft, "type" | "tableId" | "tableLabel" | "guests" | "customerName">>): Draft {
   return { ...draft, ...details, dirty: true };
 }
 
@@ -120,7 +133,9 @@ export function toSaveInput(draft: Draft, send: boolean): SaveOrderInput {
     orderId: draft.orderId,
     version: draft.version,
     type: draft.type,
+    tableId: draft.type === "dine_in" ? draft.tableId : null,
     tableLabel: draft.tableLabel,
+    guests: draft.type === "dine_in" && draft.guests.trim() ? Number(draft.guests) : null,
     customerName: draft.customerName,
     lines: draft.lines.map((l) => ({ menuItemId: l.menuItemId, quantity: l.quantity, note: l.note })),
     send,

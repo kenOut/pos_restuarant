@@ -3,6 +3,7 @@ import { and, asc, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm
 import type { Db } from "@/db/client";
 import {
   ORDER_TYPES,
+  diningTables,
   kitchenTickets,
   menuCategories,
   menuItems,
@@ -40,6 +41,8 @@ export type OrderDetail = {
   type: OrderType;
   status: OrderStatus;
   tableLabel: string | null;
+  tableId: string | null;
+  guests: number | null;
   customerName: string | null;
   version: number;
   staffName: string;
@@ -58,8 +61,15 @@ export type OrderSummary = {
   /** Paid so far; more than 0 means a split bill is part paid. */
   paid: number;
   tableLabel: string | null;
+  tableId: string | null;
+  guests: number | null;
   customerName: string | null;
+  staffId: string;
   staffName: string;
+  /** When the order was opened (Unix ms): how long the table has been seated. */
+  openedAt: number;
+  /** The bill has been printed and nothing has changed since. */
+  billPrinted: boolean;
   itemCount: number;
   total: number;
   hasUnsent: boolean;
@@ -71,7 +81,11 @@ export type SaveOrderInput = {
   /** The version the till last loaded; null for a new order. */
   version: number | null;
   type: OrderType;
+  /** Dine-in at a table from the floor plan. */
+  tableId?: string | null;
+  /** Dine-in when the floor plan has no tables yet: a typed table name. */
   tableLabel: string;
+  guests?: number | null;
   customerName: string;
   /** Lines not yet sent to the kitchen. Sent lines are locked and never sent back. */
   lines: { menuItemId: string; quantity: number; note: string }[];
@@ -119,8 +133,13 @@ export function listOpenOrders(db: Db, restaurantId: string): OrderSummary[] {
       type: orders.type,
       status: orders.status,
       tableLabel: orders.tableLabel,
+      tableId: orders.tableId,
+      guests: orders.guests,
       customerName: orders.customerName,
+      staffId: orders.staffId,
       staffName: staff.name,
+      createdAt: orders.createdAt,
+      billPrintedAt: orders.billPrintedAt,
       updatedAt: orders.updatedAt,
       itemCount: sql<number>`coalesce(sum(${orderLines.quantity}), 0)`,
       subtotal: sql<number>`coalesce(sum(${orderLines.quantity} * ${orderLines.unitPrice}), 0)`,
@@ -139,8 +158,10 @@ export function listOpenOrders(db: Db, restaurantId: string): OrderSummary[] {
     .all();
 
   const taxConfig = getTaxConfig(db, restaurantId);
-  return rows.map(({ subtotal, discount, tip, unsent, updatedAt, ticketStatuses, ...row }) => ({
+  return rows.map(({ subtotal, discount, tip, unsent, updatedAt, createdAt, billPrintedAt, ticketStatuses, ...row }) => ({
     ...row,
+    openedAt: createdAt.getTime(),
+    billPrinted: billPrintedAt !== null,
     kitchen: kitchenProgress(ticketStatuses ? ticketStatuses.split(",") : []),
     // Taxes depend only on the subtotal, so one combined line gives the same total.
     total: computeBill([{ unitPrice: subtotal, quantity: 1 }], { discount, tip }, taxConfig).total,
@@ -157,6 +178,8 @@ export function getOrderDetail(db: Db, restaurantId: string, orderId: string): O
       type: orders.type,
       status: orders.status,
       tableLabel: orders.tableLabel,
+      tableId: orders.tableId,
+      guests: orders.guests,
       customerName: orders.customerName,
       version: orders.version,
       staffName: staff.name,
@@ -210,13 +233,55 @@ export function saveOrder(db: Db, actor: Actor, input: SaveOrderInput, now = new
     }
     lines.push({ menuItemId: line.menuItemId, quantity, note: clean(line.note, NOTE_MAX) || null });
   }
-  const tableLabel = clean(input.tableLabel, LABEL_MAX) || null;
+  let tableLabel = type === "dine_in" ? clean(input.tableLabel, LABEL_MAX) || null : null;
   const customerName = clean(input.customerName, LABEL_MAX) || null;
   const send = input.send === true;
+  const guests = type === "dine_in" && input.guests != null && input.guests !== ("" as unknown) ? Number(input.guests) : null;
+  if (guests !== null && (!Number.isInteger(guests) || guests < 1 || guests > MAX_QUANTITY)) return fail(`Guests must be from 1 to ${MAX_QUANTITY}.`);
 
+  // Dine-in uses a table from the floor plan once the restaurant has set one up.
+  let tableId: string | null = null;
+  if (type === "dine_in") {
+    const usesFloorPlan = !!db.select({ id: diningTables.id }).from(diningTables).where(eq(diningTables.restaurantId, actor.restaurantId)).limit(1).get();
+    if (usesFloorPlan) {
+      const table = typeof input.tableId === "string"
+        ? db.select().from(diningTables).where(and(eq(diningTables.id, input.tableId), eq(diningTables.restaurantId, actor.restaurantId))).get()
+        : undefined;
+      if (!table) return fail("Choose a table for dine-in.");
+      const busy = db
+        .select({ id: orders.id, number: orders.number })
+        .from(orders)
+        .where(and(eq(orders.tableId, table.id), inArray(orders.status, ["held", "open"])))
+        .get();
+      if (busy && busy.id !== input.orderId) return fail(`${table.label} already has order #${busy.number} open. Open that order to add to it.`);
+      tableId = table.id;
+      tableLabel = table.label;
+    }
+  }
   if (type === "dine_in" && !tableLabel) return fail("Enter a table for dine-in.");
   if (type === "delivery" && !customerName) return fail("Enter the customer's name and phone for delivery.");
 
+  try {
+    return writeOrder(db, actor, input, { type, lines, tableId, tableLabel, guests, customerName, send }, now);
+  } catch (error) {
+    // Another till took the table at the same moment.
+    if (String((error as Error).message).includes("orders.table_id")) return fail(`${tableLabel} already has an order open. Open that order to add to it.`);
+    throw error;
+  }
+}
+
+type CheckedOrder = {
+  type: OrderType;
+  lines: { menuItemId: string; quantity: number; note: string | null }[];
+  tableId: string | null;
+  tableLabel: string | null;
+  guests: number | null;
+  customerName: string | null;
+  send: boolean;
+};
+
+function writeOrder(db: Db, actor: Actor, input: SaveOrderInput, checked: CheckedOrder, now: Date): SaveOrderResult {
+  const { type, lines, tableId, tableLabel, guests, customerName, send } = checked;
   return db.transaction((tx) => {
     // Existing order: must belong to this restaurant and not have changed since the till loaded it.
     let existing: { id: string; version: number; status: string } | undefined;
@@ -261,7 +326,8 @@ export function saveOrder(db: Db, actor: Actor, input: SaveOrderInput, now = new
     if (existing) {
       orderId = existing.id;
       tx.update(orders)
-        .set({ type, tableLabel, customerName, version: existing.version + 1, updatedAt: now })
+        // A changed order needs a new bill.
+        .set({ type, tableId, tableLabel, guests, customerName, billPrintedAt: null, version: existing.version + 1, updatedAt: now })
         .where(eq(orders.id, orderId))
         .run();
       tx.delete(orderLines).where(and(eq(orderLines.orderId, orderId), isNull(orderLines.ticketId))).run();
@@ -280,7 +346,9 @@ export function saveOrder(db: Db, actor: Actor, input: SaveOrderInput, now = new
           number,
           type,
           status: "held",
+          tableId,
           tableLabel,
+          guests,
           customerName,
           staffId: actor.id,
           updatedAt: now,
@@ -318,6 +386,9 @@ export function saveOrder(db: Db, actor: Actor, input: SaveOrderInput, now = new
       tx.update(orders).set({ status: "open" }).where(eq(orders.id, orderId)).run();
       sentItems = lines.reduce((n, l) => n + l.quantity, 0);
     }
+
+    // Seating guests at a reserved table uses up the reservation.
+    if (tableId) tx.update(diningTables).set({ reservedTime: null, reservedName: null }).where(eq(diningTables.id, tableId)).run();
 
     const order = getOrderDetail(tx as unknown as Db, actor.restaurantId, orderId)!;
     return { ok: true, order, sentItems } as const;

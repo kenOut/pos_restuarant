@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { openDatabase, type Db } from "@/db/client";
-import { kitchenTickets, menuItems, orderLines } from "@/db/schema";
+import { diningTables, kitchenTickets, menuItems, orderLines } from "@/db/schema";
 import { DEMO_RESTAURANT_ID, seedDemoData } from "@/db/seed";
 import { cedis } from "@/lib/money";
 import { FIRST_ORDER_NUMBER, getOrderDetail, listMenu, listOpenOrders, saveOrder, type SaveOrderInput } from "./service";
@@ -131,8 +131,12 @@ describe("saveOrder: checks", () => {
   });
 
   it("needs a table for dine-in and a name for delivery", () => {
-    expect(saveOrder(db, EFUA, input({ type: "dine_in" }))).toEqual({ ok: false, error: "Enter a table for dine-in." });
-    expect(saveOrder(db, EFUA, input({ type: "dine_in", tableLabel: "T7" })).ok).toBe(true);
+    expect(saveOrder(db, EFUA, input({ type: "dine_in" }))).toEqual({ ok: false, error: "Choose a table for dine-in." });
+    // With a floor plan, a typed table name isn't enough: it must be one of the tables.
+    expect(saveOrder(db, EFUA, input({ type: "dine_in", tableLabel: "T7" }))).toEqual({ ok: false, error: "Choose a table for dine-in." });
+    const t7 = db.select({ id: diningTables.id }).from(diningTables).where(eq(diningTables.label, "T7")).get()!.id;
+    const saved = saveOrder(db, EFUA, input({ type: "dine_in", tableId: t7, guests: 3 }));
+    expect(saved.ok && [saved.order.tableLabel, saved.order.guests]).toEqual(["T7", 3]);
     expect(saveOrder(db, EFUA, input({ type: "delivery" })).ok).toBe(false);
   });
 

@@ -3,6 +3,11 @@ const path = require("path");
 const { launch } = require("./lib.cjs");
 const [BASE, OUT] = process.argv.slice(2);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+/** Dine-in: choose a floor plan table by its name in the ticket's table list. */
+async function pickTable(page, label) {
+  const value = await page.$eval("aside select[name=table]", (s, l) => [...s.options].find((o) => o.textContent.startsWith(`${l} ·`))?.value, label);
+  await page.select("aside select[name=table]", value);
+}
 let failures = 0;
 const check = (name, ok, detail = "") => {
   console.log(`${ok ? "PASS" : "FAIL"}  ${name}${detail !== "" ? `  (${detail})` : ""}`);
@@ -63,7 +68,7 @@ async function startPayment(page, dishes, { table } = {}) {
   for (const [dish, n] of dishes) await tapDish(page, dish, n);
   if (table) {
     await click(page, "Dine-in", "aside");
-    await page.type("aside input", table);
+    await pickTable(page, table);
   }
   await click(page, "Pay", "aside");
   await page.waitForFunction(() => location.pathname.startsWith("/pay/"), { timeout: 10000 });
