@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useRef } from "react";
-import { lockTill } from "@/app/(till)/actions";
+import { lockTill } from "@/app/b/[branch]/(till)/actions";
 import { RestaurantMark } from "@/components/brand/restaurant-mark";
 import { Icon } from "@/components/icons";
 import type { NavId, NavItem } from "@/lib/auth/roles";
+import { useBranchPath } from "@/components/tenancy/branch-context";
 import { gsap, prefersReducedMotion } from "@/lib/gsap";
 
 type Person = { name: string; initials: string; label: string };
@@ -19,7 +20,12 @@ const PHONE_TABS: readonly NavId[] = ["home", "tables", "order", "kitchen"];
 
 function useActive() {
   const pathname = usePathname();
-  return (item: NavItem) => !!item.href && (pathname === item.href || pathname.startsWith(`${item.href}/`));
+  const branchPath = useBranchPath();
+  return (item: NavItem) => {
+    if (!item.href) return false;
+    const href = branchPath(item.href);
+    return pathname === href || pathname.startsWith(`${href}/`);
+  };
 }
 
 function LockButton({ className = "" }: { className?: string }) {
@@ -55,6 +61,7 @@ function NavIcon({ item, badge }: { item: NavItem; badge?: number }) {
 
 /** One sidebar entry: a link when the screen exists, a dimmed label when it's still to come. */
 function RailItem({ item, active, badge }: { item: NavItem; active: boolean; badge?: number }) {
+  const branchPath = useBranchPath();
   const base = "flex w-full flex-col items-center gap-1 rounded-xl px-1 py-2 text-[0.6875rem] leading-none font-medium";
   const content = (
     <>
@@ -73,7 +80,7 @@ function RailItem({ item, active, badge }: { item: NavItem; active: boolean; bad
   }
   return (
     <Link
-      href={item.href}
+      href={branchPath(item.href)}
       aria-current={active ? "page" : undefined}
       className={`${base} transition-colors duration-150 motion-reduce:transition-none ${
         active ? "bg-amber text-amber-ink" : "text-cream-muted hover:bg-ink-800 hover:text-cream"
@@ -86,6 +93,7 @@ function RailItem({ item, active, badge }: { item: NavItem; active: boolean; bad
 
 export function TillNav({ items, person, restaurantName, logoUrl = null, badges = {} }: Props) {
   const isActive = useActive();
+  const branchPath = useBranchPath();
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   const tabs = items.filter((i) => PHONE_TABS.includes(i.id));
@@ -148,7 +156,7 @@ export function TillNav({ items, person, restaurantName, logoUrl = null, badges 
             return (
               <li key={item.id} className="flex-1">
                 {item.href ? (
-                  <Link href={item.href} aria-current={active ? "page" : undefined} className={`${classes} ${active ? "text-amber" : "text-cream-muted"}`}>
+                  <Link href={branchPath(item.href)} aria-current={active ? "page" : undefined} className={`${classes} ${active ? "text-amber" : "text-cream-muted"}`}>
                     <NavIcon item={item} badge={badges[item.id]} />
                     {item.label}
                   </Link>
@@ -210,7 +218,7 @@ export function TillNav({ items, person, restaurantName, logoUrl = null, badges 
                 <li key={item.id}>
                   {item.href ? (
                     <Link
-                      href={item.href}
+                      href={branchPath(item.href)}
                       onClick={closeMore}
                       aria-current={isActive(item) ? "page" : undefined}
                       className="flex min-h-20 flex-col items-center justify-center gap-1.5 rounded-xl border border-ink-700 bg-ink-850 text-sm"

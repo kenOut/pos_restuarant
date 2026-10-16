@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { bumpTicketAction, recallLastAction, serveTicketAction, startTicketAction } from "@/app/(till)/kitchen/actions";
+import { bumpTicketAction, recallLastAction, serveTicketAction, startTicketAction } from "@/app/b/[branch]/(till)/kitchen/actions";
 import { Icon } from "@/components/icons";
 import { STATIONS, type Station } from "@/db/enums";
 import type { KitchenBoard, KitchenTicket } from "@/lib/kitchen/service";

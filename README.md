@@ -1,11 +1,11 @@
 # ENYO POS
 
-Touch-screen point of sale for restaurants in Ghana. The restaurant's main computer runs the app and keeps the data; tills, tablets, phones and the kitchen screen use it through a web browser over the restaurant's own network, so service carries on when the internet is down.
+Touch-screen point of sale for restaurants in Ghana. The restaurant's main computer runs the app and keeps the data; tills, tablets, phones and the kitchen screen use it through a web browser over the restaurant's own network, so service carries on when the internet is down. One install can run several branches of a business, each with its own database, managed from a head office.
 
 Built with Next.js 16, React 19, SQLite (Drizzle ORM), Tailwind CSS 4, GSAP and Lenis.
 
-**What works today:** marketing website · staff sign-in with PINs · till shell for every role · order screen (menu, ticket, notes, taxes, hold and send) · kitchen display with live updates to every screen · payments (cash with change, mobile money, card, voucher, house account; split bills; tips; manager-approved discounts) and printable receipts · menu, staff and settings management (logo, receipt footer, tax setup) · first-time setup · automatic backups with restore.
-**Not built yet:** floor plan, reports, head office, offline phone app, silent printing straight to a receipt printer.
+**What works today:** marketing website · staff sign-in with PINs · till shell for every role · order screen (menu, ticket, notes, taxes, hold and send) · kitchen display with live updates to every screen · payments (cash with change, mobile money, card, voucher, house account; split bills; tips; manager-approved discounts) and printable receipts · menu, staff and settings management (logo, receipt footer, tax setup) · first-time setup · automatic backups with restore · several branches, each with its own database, and a head office to add, open, rename and close them.
+**Not built yet:** floor plan, reports (including across branches), offline phone app, silent printing straight to a receipt printer.
 
 ## Requirements
 
@@ -21,9 +21,10 @@ npm run dev
 ```
 
 - Website: http://localhost:3000
-- Till sign-in: http://localhost:3000/login
+- Head office: http://localhost:3000/hq (owner@chezaccra.test, password `enyo-demo-2026`)
+- Branches: http://localhost:3000/b/osu and http://localhost:3000/b/accra-mall, or, with `ENYO_BASE_DOMAIN=localhost` in `.env.local`, http://osu.localhost:3000 and http://accra-mall.localhost:3000
 
-The database is created at `data/enyo.db` on first run and filled with the demonstration restaurant, staff and menu below. Database changes are applied automatically, even while the dev server is running.
+On first run `data/` is filled with a demonstration business, "Chez Accra Group", with two branches (Osu and Accra Mall), each with the staff and menu below. A `data/enyo.db` from before branches existed is used as the only branch instead; delete `data/` to get the demo business. Database changes are applied automatically, even while the dev server is running.
 
 ## Run it in a restaurant (main computer)
 
@@ -41,24 +42,33 @@ The database is created at `data/enyo.db` on first run and filled with the demon
 
 3. **Allow it through the firewall.** The first time, Windows asks whether Node.js may accept connections: allow it on **private** networks only.
 
-4. **On every till, tablet, phone and kitchen screen** open `http://192.168.1.20:3000/login` (use your address) in Chrome, Edge or Safari, and bookmark it or add it to the home screen.
+4. **On every till, tablet, phone and kitchen screen** open the branch's sign-in, `http://192.168.1.20:3000/b/<branch address>/login` (use your address; head office shows each branch's link), in Chrome, Edge or Safari, and bookmark it or add it to the home screen. With only one branch, `http://192.168.1.20:3000/login` goes straight to it.
 
 5. **Keep it running.** The main computer must stay on during service. To start ENYO POS automatically when Windows starts, create a Task Scheduler task that runs `npm start` in this folder at log-on.
 
 Notes:
 
-- **Data** lives in `data/enyo.db` (plus `enyo.db-wal` and `enyo.db-shm` while running), and the uploaded logo in `data/uploads/`. Every change is written to disk before it's confirmed.
+- **Data** lives in `data/`: `control.db` for head office (the business, its branches and head office sign-ins), and one folder per branch in `data/branches/` holding that branch's `enyo.db` (plus `-wal` and `-shm` files while running), its logo and its backups. Every change is written to disk before it's confirmed.
 - **Backups:** automatic — see [Backups](#backups) below. Set a second copy folder on a USB drive or another disk (Settings → Server and backups) so a backup survives if the main computer fails.
 - **Keep the project out of OneDrive/Dropbox folders.** Sync tools lock files in `.next` and `data` while the app writes to them, which breaks builds and can corrupt a live database copy. `C:\enyo-pos` is a good place.
-- **First run:** a new production database starts empty, and the till opens a short setup — restaurant name, your name and PIN (you become the owner), and optionally the 16-dish sample menu. Setup only works while the database is empty. Demo staff are not loaded in production unless `ENYO_SEED_DEMO=1` (for trials only).
+- **First run:** a new install starts empty and opens setup at `/hq/setup`: the business name; your head office sign-in (email and a password of at least 10 characters); and the first branch, with its name, its address and your PIN there, plus the 16-dish sample menu if you want it. You become that branch's owner. Setup only works while nothing exists. Demo data is not loaded in production unless `ENYO_SEED_DEMO=1` (for trials only).
+- **Upgrading from a single restaurant:** the existing database becomes the first branch where it is (no files move). The first visit to `/hq` asks one of its owners for their PIN, then creates the head office sign-in.
 - The browser address is plain `http://` on the local network. Session cookies are therefore not marked *Secure*; set `ENYO_SECURE_COOKIES=1` if you put the app behind https.
+
+## Branches and head office
+
+- **Head office** (`/hq`, or `hq.yourdomain.com`) signs in with email and password. It shows today's sales, paid orders, open orders and staff for each branch, and can **add**, **rename**, **close** and **reopen** branches. Nothing is deleted: a closed branch's tills can't be reached until it's reopened.
+- **A new branch** gets its own database, its first person (the branch lead, with owner rights in that branch only, signing in with the PIN you choose) and a menu: copied from another branch, the sample, or empty.
+- **Working in a branch:** **Open** goes to its sign-in, where you use your PIN there like everyone else. Staff, PINs, orders, menu, settings and backups belong to one branch. A session only works at the branch that issued it, and the head office sign-in doesn't open any branch.
+- **Branch addresses:** each branch has a short address such as `osu`. It works as a path on any address (`http://192.168.1.20:3000/b/osu`, or the Railway address), and as its own subdomain (`osu.yourdomain.com`) once `ENYO_BASE_DOMAIN` is set.
+- **Subdomains on Railway:** in the service's **Settings → Networking**, add the custom domain `yourdomain.com` and the wildcard custom domain `*.yourdomain.com`, then add the DNS records Railway shows at your domain provider. Set `ENYO_BASE_DOMAIN=yourdomain.com` and `ENYO_SECURE_COOKIES=1` in **Variables**. Head office is then at `hq.yourdomain.com` and each branch at `<address>.yourdomain.com`. Keep `DATABASE_PATH` (or set `ENYO_DATA_DIR`) pointing into the volume, so `control.db` and `branches/` are kept there too.
 
 ## Backups
 
 - **When:** every night at the time set in Settings (23:30 unless changed), and shortly after the app starts if there's no backup from today yet. Taken while the till keeps working, then checked for damage.
-- **Where:** `data/backups/` (or `ENYO_BACKUP_DIR`), one folder per backup holding the database, the logo and a record of the check. Each one is also copied to the second folder if you set one.
+- **Where:** each branch has its own, in a `backups` folder next to its database (or in `ENYO_BACKUP_DIR`, one folder per branch), one folder per backup holding the database, the logo and a record of the check. Each one is also copied to that branch's second folder if one is set, inside a folder named after the branch's address. The head office database is backed up once a day to `data/hq-backups/`.
 - **Kept:** the last 7 days, 12 months and 5 years, and always the 3 newest.
-- **In the app (owners):** Settings → Server and backups lists every backup with its check result, and has **Back up now**, **Download** and **Restore**. Restoring first backs up the current data (so it can be undone), then everyone signs in again.
+- **In the app (a branch's owners):** Settings → Server and backups lists that branch's backups with their check results, and has **Back up now**, **Download** and **Restore**. Restoring first backs up the current data (so it can be undone), then everyone at that branch signs in again. Other branches aren't touched.
 - **From the command line** (for when the app won't start):
 
   ```bash
@@ -69,9 +79,11 @@ Notes:
   npm run restore -- <id>     # restore a particular one
   ```
 
+  With several branches, add `--branch <address>`, e.g. `npm run backup -- --branch osu`; run without it to see the list.
+
 ## Demonstration staff
 
-For local testing only. Never use the demo data on a real till.
+For local testing only. Never use the demo data on a real till. Head office: owner@chezaccra.test, password `enyo-demo-2026`. Both demo branches have these staff:
 
 | Name      | Role             | PIN  | Lands on |
 | --------- | ---------------- | ---- | -------- |
@@ -104,11 +116,13 @@ Put these in `.env.local` (ignored by git) or set them in the environment:
 
 | Variable                 | Default        | Purpose                                                                    |
 | ------------------------ | -------------- | -------------------------------------------------------------------------- |
-| `DATABASE_PATH`          | `data/enyo.db` | Where the SQLite database lives.                                           |
+| `ENYO_DATA_DIR`          | `data`         | Folder for `control.db`, `branches/` and head office backups.              |
+| `DATABASE_PATH`          | none           | Older single-restaurant setting: its database becomes the first branch, and its folder is the data folder unless `ENYO_DATA_DIR` is set. |
+| `ENYO_BASE_DOMAIN`       | none           | e.g. `yourdomain.com`: turns on branch subdomains and `hq.` for head office. |
 | `ENYO_SEED_DEMO`         | on in dev      | `1` loads the demo data in production too; `0` never loads it.             |
 | `ENYO_SECURE_COOKIES`    | off            | `1` marks the session cookie Secure. Only turn on when serving over https. |
 | `NEXT_PUBLIC_DEMO_EMAIL` | none           | Address for the website's "Book a demonstration" button.                   |
-| `ENYO_BACKUP_DIR`        | `data/backups` | Where backups are kept.                                                    |
+| `ENYO_BACKUP_DIR`        | next to each branch | Where backups are kept (one folder per branch).                       |
 | `ENYO_BACKUPS`           | on             | `0` turns automatic backups off (manual and command-line backups still work). |
 
 ## Checks
@@ -116,27 +130,33 @@ Put these in `.env.local` (ignored by git) or set them in the environment:
 ```bash
 npm run lint        # ESLint
 npm run typecheck   # TypeScript
-npm test            # unit tests (Vitest): taxes, sign-in, roles, orders, kitchen, payments, menu, staff, settings, setup, backups
+npm test            # unit tests (Vitest): taxes, sign-in, roles, orders, kitchen, payments, menu, staff, settings, branches and head office, backups
 npm run test:e2e    # browser tests (builds first)
 ```
 
-`npm run test:e2e` builds the app, then runs each suite against its own production server and a fresh throwaway database: `landing`, `login`, `shell`, `order`, `kitchen`, `payments`, `admin`, `setup` (on an empty database), `backups` and `a11y` (axe-core WCAG 2.2 AA on every screen, plus a 44 × 44 px minimum for till controls). Run some suites only with `npm run test:e2e -- order kitchen`, or skip the build with `-- --no-build`. Screenshots go to `e2e/output/`. Set `CHROME_PATH` if Chrome or Edge isn't in the usual place.
+`npm run test:e2e` builds the app, then runs each suite against its own production server and a fresh throwaway data folder: `landing`, `login`, `shell`, `order`, `kitchen`, `payments`, `admin`, `setup` (on an empty install), `backups`, `branches` (head office, separate branch data and sessions, the `/b/` fallback, adding, renaming and closing branches) and `a11y` (axe-core WCAG 2.2 AA on every screen, plus a 44 × 44 px minimum for till controls). Run some suites only with `npm run test:e2e -- order kitchen`, or skip the build with `-- --no-build`. Screenshots go to `e2e/output/`. Set `CHROME_PATH` if Chrome or Edge isn't in the usual place.
 
 ## Project layout
 
 ```
-src/app/                 pages: website (/), setup (/setup), sign-in (/login), till (/order, /kitchen, /pay/[order], /menu, /staff, /settings), receipt (/receipt/[order]), live events (/api/events), logo (/api/logo/[file])
+src/proxy.ts             works out the branch from the subdomain or /b/<address>
+src/app/                 website (/), choose a branch (/login)
+src/app/hq/              head office: setup, sign-in, claim (upgrades), dashboard, add a branch
+src/app/b/[branch]/      a branch: sign-in (/login), till (/order, /kitchen, /pay/[order], /menu, /staff, /settings), receipt (/receipt/[order]), live events (/api/events), logo (/api/logo/[file]), backup download
 src/components/landing/  website sections, device mockups, scroll animations
 src/components/auth/     sign-in screen
 src/components/till/     till shell (sidebar, phone tabs, live connection)
 src/components/order/    order screen
 src/components/kitchen/  kitchen display
 src/components/pay/      pay screen, discount dialog, receipt controls
-src/components/menu/, staff/, settings/, setup/, admin/   management screens and their shared pieces
+src/components/hq/       head office forms and branch controls
+src/components/menu/, staff/, settings/, admin/   management screens and their shared pieces
 src/components/react-bits/  adapted React Bits text and reveal animations
-src/db/                  schema, connection, migrations runner, demo seed
+src/db/                  branch and head office schemas, connections, migrations runner, demo seed
+src/lib/tenancy/         branches: registry, request context, addresses
 src/lib/                 business rules (auth, orders, kitchen, tax, money) with unit tests
-drizzle/                 SQL migrations
+drizzle/                 SQL migrations for branch databases
+drizzle-control/         SQL migrations for the head office database
 e2e/                     browser tests and their runner
 scripts/                 command-line backup and restore
 ```
@@ -149,11 +169,13 @@ The schema is in `src/db/schema.ts`. After changing it, generate a migration and
 npx drizzle-kit generate --name describe-the-change
 ```
 
-Migrations in `drizzle/` are applied automatically when the app starts (and, in development, as soon as they appear).
+For the head office database (`src/db/control-schema.ts`) use `npx drizzle-kit generate --config drizzle.control.config.ts --name describe-the-change`.
+
+Migrations are applied automatically when the app starts (and, in development, as soon as they appear).
 
 ## Notes
 
 - GSAP is installed from GitHub (`github:greensock/GSAP#3.15.0`); `.npmrc` allows that one direct git dependency, so `npm install` needs access to github.com.
-- Staff PINs are stored only as Argon2id hashes; session tokens only as SHA-256 hashes.
+- Staff PINs and head office passwords are stored only as Argon2id hashes; session tokens only as SHA-256 hashes. Five wrong head office passwords lock that sign-in for 15 minutes.
 - Every page is sent with headers that stop other sites framing it, stop content-type guessing and limit referrer information.
 - `npm audit` reports issues only in development tools (ESLint's Next config and drizzle-kit's bundled esbuild); none of them are part of the running app.

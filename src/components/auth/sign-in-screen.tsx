@@ -1,7 +1,7 @@
 "use client";
 
 import { startTransition, useActionState, useEffect, useRef, useState } from "react";
-import { signIn, type SignInState } from "@/app/login/actions";
+import { signIn, type SignInState } from "@/app/b/[branch]/login/actions";
 import { RestaurantMark } from "@/components/brand/restaurant-mark";
 import type { SignInTile } from "@/lib/auth/service";
 import { gsap, prefersReducedMotion } from "@/lib/gsap";

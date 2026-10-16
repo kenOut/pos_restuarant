@@ -1,6 +1,10 @@
-// Runs the browser tests. Each suite gets its own fresh database and its own
+// Runs the browser tests. Each suite gets its own fresh data folder and its own
 // production server, so suites can't affect each other (the sign-in suite,
 // for example, deliberately locks a member of staff out).
+//
+// Subdomains are on (ENYO_BASE_DOMAIN=localhost), and browsers and Node both
+// send *.localhost to this computer, so the till suites run on the demo Osu
+// branch's own address, http://osu.localhost:<port>.
 //
 //   npm run test:e2e                  build, then run every suite
 //   npm run test:e2e -- order kitchen run only these suites
@@ -13,8 +17,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const SUITES = ["landing", "login", "shell", "order", "kitchen", "payments", "admin", "setup", "backups", "a11y"];
-/** Extra environment for particular suites: setup needs an empty database. */
+const SUITES = ["landing", "login", "shell", "order", "kitchen", "payments", "admin", "setup", "backups", "branches", "a11y"];
+/** Suites that start from the website or head office rather than a branch. */
+const SITE_SUITES = new Set(["landing", "setup", "branches"]);
+/** Extra environment for particular suites: setup needs an empty install. */
 const SUITE_ENV = { setup: { ENYO_SEED_DEMO: "0" } };
 const OUT = path.join(ROOT, "e2e", "output");
 
@@ -104,15 +110,17 @@ const results = [];
 
 for (const suite of suites) {
   const port = await freePort();
-  const base = `http://localhost:${port}`;
+  const site = `http://localhost:${port}`;
+  const base = SITE_SUITES.has(suite) ? site : `http://osu.localhost:${port}`;
   const dbDir = fs.mkdtempSync(path.join(os.tmpdir(), `enyo-e2e-${suite}-`));
-  const dbPath = path.join(dbDir, "enyo.db");
+  // The demo Osu branch's database.
+  const dbPath = path.join(dbDir, "branches", "chez-accra", "enyo.db");
   const log = [];
 
   console.log(`\n=== ${suite} (${base})`);
   const server = spawn(process.execPath, [path.join(ROOT, "node_modules", "next", "dist", "bin", "next"), "start", "-p", String(port)], {
     cwd: ROOT,
-    env: { ...process.env, DATABASE_PATH: dbPath, ENYO_SEED_DEMO: "1", NEXT_TELEMETRY_DISABLED: "1", ...SUITE_ENV[suite] },
+    env: { ...process.env, DATABASE_PATH: "", ENYO_BACKUP_DIR: "", ENYO_DATA_DIR: dbDir, ENYO_BASE_DOMAIN: "localhost", ENYO_SEED_DEMO: "1", NEXT_TELEMETRY_DISABLED: "1", ...SUITE_ENV[suite] },
     stdio: ["ignore", "pipe", "pipe"],
     detached: process.platform !== "win32",
   });
@@ -121,8 +129,8 @@ for (const suite of suites) {
 
   let status;
   try {
-    await waitForServer(`${base}/`, server);
-    status = spawnSync(process.execPath, [path.join(ROOT, "e2e", `${suite}.cjs`), base, OUT, dbPath], { cwd: ROOT, stdio: "inherit" }).status;
+    await waitForServer(`${site}/`, server);
+    status = spawnSync(process.execPath, [path.join(ROOT, "e2e", `${suite}.cjs`), base, OUT, dbPath, site], { cwd: ROOT, stdio: "inherit" }).status;
   } catch (error) {
     console.error(`Couldn't start the server: ${error.message}\n${log.join("")}`);
     status = 1;

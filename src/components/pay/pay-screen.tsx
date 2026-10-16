@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useId, useRef, useState, useTransition } from "react";
-import { setDiscountAction, setTipAction, takePaymentAction } from "@/app/(till)/pay/actions";
+import { setDiscountAction, setTipAction, takePaymentAction } from "@/app/b/[branch]/(till)/pay/actions";
 import { Icon, type IconName } from "@/components/icons";
+import { useBranchPath } from "@/components/tenancy/branch-context";
 import { MOMO_NETWORKS, PAYMENT_METHODS, type MomoNetwork, type PaymentMethod } from "@/db/enums";
 import { parseCedis, percentOf } from "@/lib/payments/bill";
 import { METHOD_HINTS, METHOD_LABELS, NETWORK_LABELS } from "@/lib/payments/labels";
@@ -50,6 +51,7 @@ function cashShortcuts(amount: number): number[] {
 
 export function PayScreen({ view, cashierName, canApproveDiscounts, approvers }: Props) {
   const id = useId();
+  const branchPath = useBranchPath();
   const { order, bill } = view;
   const paidInFull = order.status === "paid";
   const locked = view.payments.length > 0; // discount and tip are fixed once money is taken
@@ -119,7 +121,7 @@ export function PayScreen({ view, cashierName, canApproveDiscounts, approvers }:
     });
   };
 
-  const backHref = paidInFull ? "/order" : `/order?open=${order.id}`;
+  const backHref = branchPath(paidInFull ? "/order" : `/order?open=${order.id}`);
   const where = [ORDER_TYPE_LABELS[order.type], order.tableLabel ? `Table ${order.tableLabel}` : null, order.customerName].filter(Boolean).join(" · ");
 
   return (
@@ -158,11 +160,11 @@ export function PayScreen({ view, cashierName, canApproveDiscounts, approvers }:
                   </p>
                 ) : null}
                 <div className="mt-6 flex flex-wrap justify-center gap-3">
-                  <Link href={`/receipt/${order.id}?print=1`} className="inline-flex min-h-12 items-center gap-2 rounded-xl border border-ink-600 bg-ink-850 px-5 font-semibold hover:bg-ink-800">
+                  <Link href={branchPath(`/receipt/${order.id}?print=1`)} className="inline-flex min-h-12 items-center gap-2 rounded-xl border border-ink-600 bg-ink-850 px-5 font-semibold hover:bg-ink-800">
                     <Icon name="printer" className="size-5" />
                     Print receipt
                   </Link>
-                  <Link href="/order" className="inline-flex min-h-12 items-center rounded-xl bg-amber px-6 font-semibold text-amber-ink hover:bg-[#f5b552]">
+                  <Link href={branchPath("/order")} className="inline-flex min-h-12 items-center rounded-xl bg-amber px-6 font-semibold text-amber-ink hover:bg-[#f5b552]">
                     New order
                   </Link>
                 </div>

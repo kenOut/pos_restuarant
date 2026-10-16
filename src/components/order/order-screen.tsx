@@ -2,9 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { setAvailableAction } from "@/app/(till)/menu/actions";
-import { loadOrderAction, saveOrderAction } from "@/app/(till)/order/actions";
+import { setAvailableAction } from "@/app/b/[branch]/(till)/menu/actions";
+import { loadOrderAction, saveOrderAction } from "@/app/b/[branch]/(till)/order/actions";
 import { Icon } from "@/components/icons";
+import { useBranchPath } from "@/components/tenancy/branch-context";
 import { READY_EVENT, type ReadyDetail } from "@/components/till/till-live";
 import {
   addItem,
@@ -42,6 +43,7 @@ const ALL = "All";
 
 export function OrderScreen({ menu, openOrders, staffName, initialOrder = null, taxConfig, canMarkSoldOut = false }: Props) {
   const router = useRouter();
+  const branchPath = useBranchPath();
   const [draft, setDraft] = useState<Draft>(() => (initialOrder ? draftFromOrder(initialOrder) : emptyDraft()));
   const [category, setCategory] = useState(ALL);
   const [search, setSearch] = useState("");
@@ -120,7 +122,7 @@ export function OrderScreen({ menu, openOrders, staffName, initialOrder = null, 
         }
         orderId = result.order.id;
       }
-      router.push(`/pay/${orderId}`);
+      router.push(branchPath(`/pay/${orderId}`));
     });
 
   const openOrder = (id: string) => {
@@ -129,7 +131,7 @@ export function OrderScreen({ menu, openOrders, staffName, initialOrder = null, 
     // A part-paid order can only be finished on the pay screen.
     if ((openOrders.find((o) => o.id === id)?.paid ?? 0) > 0) {
       closeOrders();
-      return router.push(`/pay/${id}`);
+      return router.push(branchPath(`/pay/${id}`));
     }
     startTransition(async () => {
       const order = await loadOrderAction(id);

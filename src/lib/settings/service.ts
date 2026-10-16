@@ -136,5 +136,5 @@ export function removeLogo(db: Db, actor: Actor, uploadsDir: string): Result {
   return { ok: true };
 }
 
-/** Public address of a logo file. */
-export const logoUrl = (logoFile: string | null) => (logoFile ? `/api/logo/${logoFile}` : null);
+/** Public address of a branch's logo file (branchBase: "" or "/b/<slug>"). */
+export const logoUrl = (branchBase: string, logoFile: string | null) => (logoFile ? `${branchBase}/api/logo/${logoFile}` : null);

@@ -12,7 +12,7 @@ import {
   restoreItemAction,
   setAvailableAction,
   updateItemAction,
-} from "@/app/(till)/menu/actions";
+} from "@/app/b/[branch]/(till)/menu/actions";
 import { Button, Dialog, Field, FormError, IconButton, PageHeader, inputClass } from "@/components/admin/ui";
 import { STATIONS, type Station } from "@/db/enums";
 import type { AdminCategory, AdminItem } from "@/lib/menu/service";

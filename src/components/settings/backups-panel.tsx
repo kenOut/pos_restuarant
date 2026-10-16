@@ -1,8 +1,9 @@
 "use client";
 
 import { useId, useState, useTransition } from "react";
-import { backupNowAction, restoreBackupAction, updateBackupSettingsAction } from "@/app/(till)/settings/backup-actions";
+import { backupNowAction, restoreBackupAction, updateBackupSettingsAction } from "@/app/b/[branch]/(till)/settings/backup-actions";
 import { Button, Dialog, Field, FormError, inputClass } from "@/components/admin/ui";
+import { useBranchPath } from "@/components/tenancy/branch-context";
 import type { BackupInfo } from "@/lib/backups/core";
 import type { BackupStatus } from "@/lib/backups/service";
 
@@ -20,6 +21,7 @@ const size = (bytes: number) => (bytes < 1024 * 1024 ? `${Math.max(1, Math.round
 /** Settings → Server and backups (owners). */
 export function BackupsPanel({ status }: { status: BackupStatus }) {
   const id = useId();
+  const branchPath = useBranchPath();
   const [time, setTime] = useState(status.time);
   const [copyDir, setCopyDir] = useState(status.copyDir ?? "");
   const [restoring, setRestoring] = useState<BackupInfo | null>(null);
@@ -95,7 +97,7 @@ export function BackupsPanel({ status }: { status: BackupStatus }) {
                 </p>
               </div>
               <a
-                href={`/api/backups/${b.id}`}
+                href={branchPath(`/api/backups/${b.id}`)}
                 download
                 className="inline-flex min-h-11 items-center rounded-xl border border-ink-600 px-4 text-sm font-semibold hover:bg-ink-800"
               >

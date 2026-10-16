@@ -16,12 +16,11 @@ export function applyMigrations(db: Db): void {
 }
 
 /**
- * Opens (or creates) the SQLite database and brings its schema up to date.
+ * Opens (or creates) a SQLite file with the settings every ENYO POS database uses.
  * Pass ":memory:" for a throwaway database in tests.
  */
-export function openDatabase(file: string): Db {
+export function openSqlite(file: string): Database.Database {
   if (file !== ":memory:") fs.mkdirSync(path.dirname(file), { recursive: true });
-
   const sqlite = new Database(file);
   // WAL lets tills read while another writes; synchronous=FULL means a change
   // is on disk before it's confirmed, so a power cut can't lose it.
@@ -29,8 +28,15 @@ export function openDatabase(file: string): Db {
   sqlite.pragma("synchronous = FULL");
   sqlite.pragma("foreign_keys = ON");
   sqlite.pragma("busy_timeout = 5000");
+  return sqlite;
+}
 
-  const db = drizzle(sqlite, { schema });
+/**
+ * Opens (or creates) a branch database and brings its schema up to date.
+ * Pass ":memory:" for a throwaway database in tests.
+ */
+export function openDatabase(file: string): Db {
+  const db = drizzle(openSqlite(file), { schema });
   applyMigrations(db);
   return db;
 }

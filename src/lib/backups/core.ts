@@ -38,10 +38,6 @@ const MANIFEST = "manifest.json";
 
 export const isBackupId = (id: string) => ID_PATTERN.test(id);
 
-/** Where backups go: ENYO_BACKUP_DIR, or a "backups" folder next to the database. */
-export function backupsDirFor(dbFile: string): string {
-  return process.env.ENYO_BACKUP_DIR || path.join(path.dirname(dbFile), "backups");
-}
 
 const pad = (n: number, width = 2) => String(n).padStart(width, "0");
 const dayKey = (t: number) => {

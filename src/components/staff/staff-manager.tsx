@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState, useTransition } from "react";
-import { createStaffAction, resetPinAction, setStaffActiveAction, unlockStaffAction, updateStaffAction } from "@/app/(till)/staff/actions";
+import { createStaffAction, resetPinAction, setStaffActiveAction, unlockStaffAction, updateStaffAction } from "@/app/b/[branch]/(till)/staff/actions";
 import { Button, Dialog, Field, FormError, PageHeader, inputClass } from "@/components/admin/ui";
 import type { StaffRole } from "@/db/enums";
 import { ROLE_LABELS } from "@/lib/auth/roles";

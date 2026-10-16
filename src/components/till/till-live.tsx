@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useBranchPath } from "@/components/tenancy/branch-context";
 
 export const READY_EVENT = "enyo:ready";
 export type ReadyDetail = { orderNumber: number; label: string };
@@ -13,10 +14,11 @@ export type ReadyDetail = { orderNumber: number; label: string };
  */
 export function TillLive() {
   const router = useRouter();
+  const eventsUrl = useBranchPath()("/api/events");
   const [lost, setLost] = useState(false);
 
   useEffect(() => {
-    const source = new EventSource("/api/events");
+    const source = new EventSource(eventsUrl);
     let refreshTimer: number | undefined;
     let lostTimer: number | undefined;
     let wasLost = false;
@@ -54,7 +56,7 @@ export function TillLive() {
       window.clearTimeout(refreshTimer);
       window.clearTimeout(lostTimer);
     };
-  }, [router]);
+  }, [router, eventsUrl]);
 
   if (!lost) return null;
   return (

@@ -28,25 +28,25 @@ const DEMO_SOLD_OUT = new Set(["pineapple-sorbet"]);
  * Fills in whatever demo data is missing: the restaurant and staff on a new
  * database, and the menu on a database created before the menu existed.
  */
-export function seedDemoData(db: Db): void {
+export function seedDemoData(db: Db, { restaurantId = DEMO_RESTAURANT_ID, name = "Chez Accra" } = {}): void {
   db.transaction((tx) => {
     const hasRestaurant = tx.select({ id: restaurants.id }).from(restaurants).limit(1).all().length > 0;
     if (!hasRestaurant) {
-      tx.insert(restaurants).values({ id: DEMO_RESTAURANT_ID, name: "Chez Accra" }).run();
+      tx.insert(restaurants).values({ id: restaurantId, name }).run();
       tx.insert(staff)
         .values(
           DEMO_STAFF.map(({ pin, ...person }) => ({
             ...person,
-            restaurantId: DEMO_RESTAURANT_ID,
+            restaurantId,
             pinHash: hashSync(pin),
           }))
         )
         .run();
     }
 
-    const demoRestaurant = tx.select({ id: restaurants.id }).from(restaurants).where(eq(restaurants.id, DEMO_RESTAURANT_ID)).get();
+    const demoRestaurant = tx.select({ id: restaurants.id }).from(restaurants).where(eq(restaurants.id, restaurantId)).get();
     const hasMenu = tx.select({ id: menuItems.id }).from(menuItems).limit(1).all().length > 0;
-    if (demoRestaurant && !hasMenu) insertSampleMenu(tx as unknown as Db, DEMO_RESTAURANT_ID, { demo: true });
+    if (demoRestaurant && !hasMenu) insertSampleMenu(tx as unknown as Db, restaurantId, { demo: true });
   });
 }
 

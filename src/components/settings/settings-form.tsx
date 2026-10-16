@@ -7,7 +7,7 @@ import {
   updateDiscountApprovalAction,
   updateTaxesAction,
   uploadLogoAction,
-} from "@/app/(till)/settings/actions";
+} from "@/app/b/[branch]/(till)/settings/actions";
 import { Button, Field, FormError, PageHeader, inputClass } from "@/components/admin/ui";
 import { RestaurantMark } from "@/components/brand/restaurant-mark";
 import { menuItem } from "@/data/demo-menu";

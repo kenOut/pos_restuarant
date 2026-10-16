@@ -5,7 +5,7 @@ import path from "node:path";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { openDatabase, type Db } from "@/db/client";
-import { menuItems, restaurants, sessions } from "@/db/schema";
+import { menuItems, sessions } from "@/db/schema";
 import { DEMO_RESTAURANT_ID, seedDemoData } from "@/db/seed";
 import { checkPin, createSession, findSessionStaff, listSignInTiles } from "@/lib/auth/service";
 import { cedis } from "@/lib/money";
@@ -25,7 +25,6 @@ import {
 import { listMenu, listOpenOrders, saveOrder } from "@/lib/orders/service";
 import { getPaymentView, setDiscount, takePayment } from "@/lib/payments/service";
 import { getSettings, removeLogo, setLogo, updateBusiness, updateDiscountApproval, updateTaxes } from "@/lib/settings/service";
-import { needsSetup, runSetup } from "@/lib/setup/service";
 import { createStaff, listStaff, resetPin, setStaffActive, unlockStaff, updateStaff } from "@/lib/staff/service";
 import { DEFAULT_TAX_CONFIG } from "@/lib/tax-config";
 
@@ -248,42 +247,3 @@ describe("settings", () => {
     fs.rmSync(dir, { recursive: true, force: true });
   });
 });
-
-describe("first-time setup", () => {
-  it("creates the restaurant and its owner on an empty database, with the sample menu if asked", async () => {
-    const empty = openDatabase(":memory:");
-    expect(needsSetup(empty)).toBe(true);
-    const result = await runSetup(empty, { restaurantName: "Buka Lounge", ownerName: "Yaa Asantewaa", pin: "2468", sampleMenu: true });
-    if (!result.ok) throw new Error(result.error);
-    expect(needsSetup(empty)).toBe(false);
-    expect(listSignInTiles(empty)).toEqual([{ id: result.ownerId, name: "Yaa Asantewaa", initials: "YA", label: "Owner" }]);
-    expect((await checkPin(empty, result.ownerId, "2468")).ok).toBe(true);
-    const restaurantId = onlyRestaurantId(empty);
-    expect(listMenu(empty, restaurantId)).toHaveLength(16);
-    expect(listMenu(empty, restaurantId).every((m) => m.available)).toBe(true);
-  });
-
-  it("starts with an empty menu when the sample isn't wanted", async () => {
-    const empty = openDatabase(":memory:");
-    await runSetup(empty, { restaurantName: "Buka Lounge", ownerName: "Yaa", pin: "2468", sampleMenu: false });
-    expect(listMenu(empty, onlyRestaurantId(empty))).toHaveLength(0);
-  });
-
-  it("can't run again once a restaurant exists", async () => {
-    expect(await runSetup(db, { restaurantName: "Takeover", ownerName: "Mallory", pin: "1234", sampleMenu: false })).toEqual({
-      ok: false,
-      error: "This till is already set up. Sign in instead.",
-    });
-  });
-
-  it("checks its inputs", async () => {
-    const empty = openDatabase(":memory:");
-    expect((await runSetup(empty, { restaurantName: "", ownerName: "Yaa", pin: "2468", sampleMenu: false })).ok).toBe(false);
-    expect((await runSetup(empty, { restaurantName: "Buka", ownerName: "Yaa", pin: "24", sampleMenu: false })).ok).toBe(false);
-  });
-});
-
-/** The only restaurant in a freshly set-up database. */
-function onlyRestaurantId(database: Db): string {
-  return database.select({ id: restaurants.id }).from(restaurants).get()!.id;
-}

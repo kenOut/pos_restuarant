@@ -2,7 +2,7 @@
 // axe-core against WCAG 2.2 AA on every screen and state, plus a 44 × 44 px
 // minimum touch target for every control on the till screens.
 const { launch } = require("./lib.cjs");
-const [BASE] = process.argv.slice(2);
+const [BASE, , , SITE] = process.argv.slice(2);
 const AXE = require.resolve("axe-core/axe.min.js");
 const MIN_TARGET = 44;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -93,7 +93,7 @@ const tapDish = (page, name) =>
 
   // Website (no touch-target rule: it's not the till)
   const site = await device(browser, { width: 1440, height: 900 });
-  await site.goto(BASE, { waitUntil: "load" });
+  await site.goto(SITE, { waitUntil: "load" });
   await sleep(1000);
   await audit(site, "Landing page", { targets: false });
 

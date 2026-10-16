@@ -100,8 +100,9 @@ const cookieHeader = async (page) => (await page.cookies()).map((c) => `${c.name
   check("saves the copy folder and nightly time", await waitText(owner, "Backup settings saved."));
   await click(owner, "Back up now");
   await waitText(owner, "Backup taken and checked.");
-  const copied = fs.readdirSync(usb).filter((n) => /_manual/.test(n));
-  check("new backups are also copied to that folder", copied.length >= 1, copied.join(","));
+  // Each branch gets its own folder in the copy folder, named after its address.
+  const copied = fs.existsSync(path.join(usb, "osu")) ? fs.readdirSync(path.join(usb, "osu")).filter((n) => /_manual/.test(n)) : [];
+  check("new backups are also copied to that folder, under the branch's name", copied.length >= 1, copied.join(","));
 
   // Change something, then restore the earlier backup
   await fill(owner, "input[maxlength='60']", "Changed after backup");
@@ -129,7 +130,7 @@ const cookieHeader = async (page) => (await page.cookies()).map((c) => `${c.name
 
   await signIn(owner, "Ama Owner", "1111");
   await owner.goto(`${BASE}/settings`, { waitUntil: "load" });
-  check("the data is back as it was at the backup", (await owner.$eval("input[maxlength='60']", (i) => i.value)) === "Chez Accra");
+  check("the data is back as it was at the backup", (await owner.$eval("input[maxlength='60']", (i) => i.value)) === "Chez Accra Osu");
   rows = await backupRows(owner);
   check("a backup of the data just replaced was taken first", rows.some((r) => r.includes("Before a restore")), rows.join(" | "));
   await owner.screenshot({ path: path.join(OUT, "backups.png"), fullPage: true });

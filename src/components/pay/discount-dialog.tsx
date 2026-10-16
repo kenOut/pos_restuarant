@@ -1,7 +1,7 @@
 "use client";
 
 import { forwardRef, useId, useState, useTransition } from "react";
-import { setDiscountAction } from "@/app/(till)/pay/actions";
+import { setDiscountAction } from "@/app/b/[branch]/(till)/pay/actions";
 import { Icon } from "@/components/icons";
 import { parseCedis, percentOf } from "@/lib/payments/bill";
 import { QUICK_DISCOUNT_REASONS } from "@/lib/payments/labels";

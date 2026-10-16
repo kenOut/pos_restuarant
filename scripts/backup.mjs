@@ -1,12 +1,13 @@
-// npm run backup            take a backup now (works while the app is running)
-// npm run backup -- --list  list the backups
+// npm run backup                        take a backup now (works while the app is running)
+// npm run backup -- --list               list the backups
+// npm run backup -- --branch osu ...     which branch, when there are several
 import path from "node:path";
 import Database from "better-sqlite3";
-import { backupsDirFor, createBackup, listBackups, pruneBackups } from "../src/lib/backups/core.ts";
+import { createBackup, listBackups, pruneBackups } from "../src/lib/backups/core.ts";
+import { chooseBranch } from "./branches.mjs";
 
-const dbFile = path.resolve(process.env.DATABASE_PATH ?? path.join("data", "enyo.db"));
-const backupsDir = backupsDirFor(dbFile);
-const uploadsDir = path.join(path.dirname(dbFile), "uploads");
+const { branch, dbFile, backupsDir, uploadsDir } = chooseBranch(process.argv.slice(2));
+console.log(`Branch: ${branch.name} (${branch.slug})`);
 const when = (t) => new Date(t).toLocaleString("en-GB");
 
 if (process.argv.includes("--list")) {
