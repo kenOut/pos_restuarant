@@ -19,8 +19,8 @@ const STATUS = {
   held: { label: "Held", className: "bg-amber-soft text-amber" },
   sent: { label: "Sent to kitchen", className: "bg-ink-700 text-cream" },
   cooking: { label: "Cooking", className: "bg-amber-soft text-amber" },
-  ready: { label: "Ready to serve", className: "bg-eating text-white" },
-  served: { label: "Served", className: "bg-eating-soft text-eating" },
+  ready: { label: "Ready to serve", className: "bg-eating-strong text-white" },
+  served: { label: "Served", className: "bg-eating-soft text-eating-text" },
 };
 
 /** Where the order stands: held at the till, or how far the kitchen has got. */

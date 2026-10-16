@@ -182,6 +182,11 @@ const tapDish = (page, name) =>
   await owner.goto(`${BASE}/settings`, { waitUntil: "load" });
   await sleep(500);
   await audit(owner, "Settings (owner)");
+  await click(owner, "Back up now");
+  await owner.waitForFunction(() => document.body.innerText.includes("Backup taken and checked."), { timeout: 15000 });
+  await click(owner, "Restore");
+  await sleep(300);
+  await audit(owner, "Restore backup dialog");
 
   // Phone: ticket open full screen, then the More sheet
   const phone = await device(browser, phoneSize);

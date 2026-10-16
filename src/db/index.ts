@@ -24,6 +24,26 @@ function shouldSeedDemo(): boolean {
 
 const databaseFile = () => process.env.DATABASE_PATH ?? path.join(process.cwd(), "data", "enyo.db");
 
+/** Path of the live database file. */
+export function getDatabaseFile(): string {
+  return databaseFile();
+}
+
+/** Number of migrations this version of the app knows about. */
+export function appMigrationCount(): number {
+  try {
+    return (JSON.parse(fs.readFileSync(JOURNAL, "utf8")) as { entries: unknown[] }).entries.length;
+  } catch {
+    return 0;
+  }
+}
+
+/** Closes the connection (before a restore swaps the file). The next getDb() reopens it. */
+export function closeDb(): void {
+  globalForDb.enyoDb?.$client.close();
+  globalForDb.enyoDb = undefined;
+}
+
 /** Uploaded files (the logo) live next to the database, so backups can include them. */
 export function getUploadsDir(): string {
   return path.join(path.dirname(databaseFile()), "uploads");

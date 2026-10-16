@@ -145,7 +145,7 @@ export function PayScreen({ view, cashierName, canApproveDiscounts, approvers }:
           {paidInFull ? (
             <section role="status" className="grid flex-1 place-items-center rounded-2xl border border-eating/50 bg-eating-soft p-6 text-center">
               <div>
-                <span className="mx-auto grid size-16 place-items-center rounded-full bg-eating text-white">
+                <span className="mx-auto grid size-16 place-items-center rounded-full bg-eating-strong text-white">
                   <Icon name="check" className="size-8" strokeWidth={2.5} />
                 </span>
                 <h2 className="mt-4 font-display text-3xl font-bold">Paid in full</h2>

@@ -27,7 +27,7 @@ export function Toast({ message, onDone }: Props) {
     <div
       ref={ref}
       role="status"
-      className="pointer-events-none fixed inset-x-0 top-4 z-[60] mx-auto flex w-fit max-w-[calc(100%-2rem)] items-center gap-2 rounded-xl bg-eating px-4 py-3 font-semibold text-white shadow-lg"
+      className="pointer-events-none fixed inset-x-0 top-4 z-[60] mx-auto flex w-fit max-w-[calc(100%-2rem)] items-center gap-2 rounded-xl bg-eating-strong px-4 py-3 font-semibold text-white shadow-lg"
     >
       <Icon name="check" className="size-5 shrink-0" />
       {message}

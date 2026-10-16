@@ -22,6 +22,10 @@ export const restaurants = sqliteTable("restaurants", {
   discountNeedsApproval: integer("discount_needs_approval", { mode: "boolean" }).notNull().default(true),
   /** Null means Ghana's 2026 defaults (see DEFAULT_TAX_CONFIG). */
   taxConfig: text("tax_config", { mode: "json" }).$type<TaxConfig>(),
+  /** Nightly backup time on the main computer's clock, "HH:MM". */
+  backupTime: text("backup_time").notNull().default("23:30"),
+  /** Optional second folder (e.g. a USB drive) that every backup is also copied to. */
+  backupCopyDir: text("backup_copy_dir"),
   createdAt: createdAt(),
 });
 

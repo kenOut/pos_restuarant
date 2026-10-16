@@ -176,7 +176,7 @@ export function KitchenBoardView({ board }: { board: KitchenBoard }) {
               >
                 #{r.orderNumber} · {where}
                 {now !== null ? <span className="font-normal text-cream-muted">{Math.max(0, Math.floor((now - r.readyAt) / 60_000))}m</span> : null}
-                <Icon name="check" className="size-4 text-eating" />
+                <Icon name="check" className="size-4 text-eating-text" />
                 <span className="sr-only">, mark as served</span>
               </button>
             );

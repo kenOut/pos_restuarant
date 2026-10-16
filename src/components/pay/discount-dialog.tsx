@@ -107,7 +107,7 @@ export const DiscountDialog = forwardRef<HTMLDialogElement, Props>(function Disc
           placeholder={kind === "percent" ? "e.g. 10" : "e.g. 40.00"}
           className={field}
         />
-        {preview !== null ? <p className="mt-1 text-sm text-eating">−{formatCedis(Math.min(preview, subtotal))} before tax</p> : null}
+        {preview !== null ? <p className="mt-1 text-sm text-eating-text">−{formatCedis(Math.min(preview, subtotal))} before tax</p> : null}
 
         <label className="mt-3 block text-sm text-cream-muted" htmlFor={`${id}-reason`}>
           Reason

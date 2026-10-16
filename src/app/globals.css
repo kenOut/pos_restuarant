@@ -37,6 +37,9 @@
   /* Status colours (floor plan, kitchen timers) */
   --color-eating: #2f8f78;
   --color-eating-soft: #163a32;
+  /* Green as text on dark surfaces (4.5:1 or better on all of them) and as a fill behind white text (5.9:1). */
+  --color-eating-text: #45ad93;
+  --color-eating-strong: #23705e;
   --color-reserved: #5b7fc0;
   --color-reserved-soft: #1c2840;
   --color-alert: #e8735a;

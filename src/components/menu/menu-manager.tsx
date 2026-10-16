@@ -78,7 +78,7 @@ export function MenuManager({ categories, items }: Props) {
       />
       <div className="px-3 pt-2 sm:px-4" aria-live="polite">
         {!form ? <FormError error={error} /> : null}
-        {notice ? <p className="text-sm text-eating">{notice}</p> : null}
+        {notice ? <p className="text-sm text-eating-text">{notice}</p> : null}
       </div>
 
       <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto p-3 sm:p-4 md:grid-cols-[17rem_1fr] md:overflow-hidden">

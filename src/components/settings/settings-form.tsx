@@ -12,11 +12,13 @@ import { Button, Field, FormError, PageHeader, inputClass } from "@/components/a
 import { RestaurantMark } from "@/components/brand/restaurant-mark";
 import { menuItem } from "@/data/demo-menu";
 import { computeBill, taxLinesForDisplay } from "@/lib/payments/bill";
+import type { BackupStatus } from "@/lib/backups/service";
 import type { RestaurantSettings } from "@/lib/settings/service";
+import { BackupsPanel } from "./backups-panel";
 import type { TaxConfig } from "@/lib/tax-config";
 import { formatAmount, formatCedis } from "@/lib/money";
 
-type Props = { settings: RestaurantSettings; logoUrl: string | null; canEditTaxes: boolean };
+type Props = { settings: RestaurantSettings; logoUrl: string | null; canEditTaxes: boolean; backups: BackupStatus | null };
 type Status = { section: string; ok: boolean; message: string } | null;
 
 // Preview the deck's receipt: 2× Jollof rice and 1× Sobolo.
@@ -38,7 +40,7 @@ function Switch({ checked, onChange, label, description, disabled }: { checked: 
   );
 }
 
-export function SettingsForm({ settings, logoUrl, canEditTaxes }: Props) {
+export function SettingsForm({ settings, logoUrl, canEditTaxes, backups }: Props) {
   const id = useId();
   const [name, setName] = useState(settings.name);
   const [footer, setFooter] = useState(settings.receiptFooter);
@@ -58,7 +60,7 @@ export function SettingsForm({ settings, logoUrl, canEditTaxes }: Props) {
     });
   const statusFor = (section: string) =>
     status?.section === section ? (
-      <p role={status.ok ? "status" : "alert"} className={`text-sm ${status.ok ? "text-eating" : "text-alert"}`}>
+      <p role={status.ok ? "status" : "alert"} className={`text-sm ${status.ok ? "text-eating-text" : "text-alert"}`}>
         {status.message}
       </p>
     ) : (
@@ -290,6 +292,15 @@ export function SettingsForm({ settings, logoUrl, canEditTaxes }: Props) {
               {statusFor("discounts")}
             </div>
           </section>
+
+          {backups ? (
+            <BackupsPanel status={backups} />
+          ) : (
+            <section className={section}>
+              <h2 className="font-display text-xl font-bold">Server and backups</h2>
+              <p className="mt-1 text-sm text-cream-muted">Backups are looked after by the owner.</p>
+            </section>
+          )}
         </div>
       </div>
     </div>

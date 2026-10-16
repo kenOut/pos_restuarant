@@ -84,7 +84,7 @@ export function FloorPlanScreen() {
           <div className="flex w-48 shrink-0 flex-col rounded-xl border border-ink-700 bg-ink-850 p-3">
             <div className="flex items-center justify-between">
               <span className="text-base font-bold">Table T7</span>
-              <span className="rounded-full bg-eating-soft px-2 py-0.5 text-[0.5em] text-eating">Eating</span>
+              <span className="rounded-full bg-eating-soft px-2 py-0.5 text-[0.5em] text-eating-text">Eating</span>
             </div>
             <span className="text-[0.5em] text-cream-faint">4 guests · Kofi A. · seated 13 min</span>
             <div className="mt-2 flex flex-col divide-y divide-ink-700 text-2xs">

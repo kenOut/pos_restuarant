@@ -13,7 +13,7 @@ import { needsSetup } from "@/lib/setup/service";
 
 export const metadata: Metadata = { title: "Sign in" };
 
-export default async function LoginPage() {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ restored?: string }> }) {
   // Already signed in on this device: go straight to work. Lock first to switch person.
   const current = await getCurrentStaff();
   if (current) redirect(homePathFor(current.role));
@@ -44,8 +44,14 @@ export default async function LoginPage() {
     );
   }
 
+  const { restored } = await searchParams;
   return (
     <main>
+      {restored === "1" ? (
+        <p role="status" className="bg-eating-soft px-4 py-3 text-center font-semibold">
+          Backup restored. Everyone needs to sign in again.
+        </p>
+      ) : null}
       <SignInScreen restaurantName={restaurantName} logoUrl={logo} tiles={tiles} />
     </main>
   );

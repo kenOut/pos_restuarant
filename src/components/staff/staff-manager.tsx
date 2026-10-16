@@ -153,7 +153,7 @@ export function StaffManager({ staff, me, myRole, assignable }: Props) {
       <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
         <div aria-live="polite" className="mb-2">
           {!editing ? <FormError error={error} /> : null}
-          {notice ? <p className="text-sm text-eating">{notice}</p> : null}
+          {notice ? <p className="text-sm text-eating-text">{notice}</p> : null}
         </div>
         <h2 className="text-sm font-semibold text-cream-muted">Active · {active.length}</h2>
         <ul className="mt-2 space-y-2">{active.map(row)}</ul>

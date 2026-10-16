@@ -4,8 +4,8 @@ Touch-screen point of sale for restaurants in Ghana. The restaurant's main compu
 
 Built with Next.js 16, React 19, SQLite (Drizzle ORM), Tailwind CSS 4, GSAP and Lenis.
 
-**What works today:** marketing website · staff sign-in with PINs · till shell for every role · order screen (menu, ticket, notes, taxes, hold and send) · kitchen display with live updates to every screen · payments (cash with change, mobile money, card, voucher, house account; split bills; tips; manager-approved discounts) and printable receipts · menu, staff and settings management (logo, receipt footer, tax setup) · first-time setup.
-**Not built yet:** floor plan, automatic backups, reports, head office, offline phone app, silent printing straight to a receipt printer.
+**What works today:** marketing website · staff sign-in with PINs · till shell for every role · order screen (menu, ticket, notes, taxes, hold and send) · kitchen display with live updates to every screen · payments (cash with change, mobile money, card, voucher, house account; split bills; tips; manager-approved discounts) and printable receipts · menu, staff and settings management (logo, receipt footer, tax setup) · first-time setup · automatic backups with restore.
+**Not built yet:** floor plan, reports, head office, offline phone app, silent printing straight to a receipt printer.
 
 ## Requirements
 
@@ -48,10 +48,26 @@ The database is created at `data/enyo.db` on first run and filled with the demon
 Notes:
 
 - **Data** lives in `data/enyo.db` (plus `enyo.db-wal` and `enyo.db-shm` while running), and the uploaded logo in `data/uploads/`. Every change is written to disk before it's confirmed.
-- **Backups:** until nightly backups are built, stop the app and copy the whole `data` folder somewhere safe (USB drive or cloud folder) at the end of each day.
+- **Backups:** automatic — see [Backups](#backups) below. Set a second copy folder on a USB drive or another disk (Settings → Server and backups) so a backup survives if the main computer fails.
 - **Keep the project out of OneDrive/Dropbox folders.** Sync tools lock files in `.next` and `data` while the app writes to them, which breaks builds and can corrupt a live database copy. `C:\enyo-pos` is a good place.
 - **First run:** a new production database starts empty, and the till opens a short setup — restaurant name, your name and PIN (you become the owner), and optionally the 16-dish sample menu. Setup only works while the database is empty. Demo staff are not loaded in production unless `ENYO_SEED_DEMO=1` (for trials only).
 - The browser address is plain `http://` on the local network. Session cookies are therefore not marked *Secure*; set `ENYO_SECURE_COOKIES=1` if you put the app behind https.
+
+## Backups
+
+- **When:** every night at the time set in Settings (23:30 unless changed), and shortly after the app starts if there's no backup from today yet. Taken while the till keeps working, then checked for damage.
+- **Where:** `data/backups/` (or `ENYO_BACKUP_DIR`), one folder per backup holding the database, the logo and a record of the check. Each one is also copied to the second folder if you set one.
+- **Kept:** the last 7 days, 12 months and 5 years, and always the 3 newest.
+- **In the app (owners):** Settings → Server and backups lists every backup with its check result, and has **Back up now**, **Download** and **Restore**. Restoring first backs up the current data (so it can be undone), then everyone signs in again.
+- **From the command line** (for when the app won't start):
+
+  ```bash
+  npm run backup              # take a backup now
+  npm run backup -- --list    # list backups
+  npm run restore             # list backups you can restore
+  npm run restore -- latest   # restore the newest (stop the app first)
+  npm run restore -- <id>     # restore a particular one
+  ```
 
 ## Demonstration staff
 
@@ -92,17 +108,19 @@ Put these in `.env.local` (ignored by git) or set them in the environment:
 | `ENYO_SEED_DEMO`         | on in dev      | `1` loads the demo data in production too; `0` never loads it.             |
 | `ENYO_SECURE_COOKIES`    | off            | `1` marks the session cookie Secure. Only turn on when serving over https. |
 | `NEXT_PUBLIC_DEMO_EMAIL` | none           | Address for the website's "Book a demonstration" button.                   |
+| `ENYO_BACKUP_DIR`        | `data/backups` | Where backups are kept.                                                    |
+| `ENYO_BACKUPS`           | on             | `0` turns automatic backups off (manual and command-line backups still work). |
 
 ## Checks
 
 ```bash
 npm run lint        # ESLint
 npm run typecheck   # TypeScript
-npm test            # unit tests (Vitest): taxes, sign-in, roles, orders, kitchen, payments, menu, staff, settings, setup
+npm test            # unit tests (Vitest): taxes, sign-in, roles, orders, kitchen, payments, menu, staff, settings, setup, backups
 npm run test:e2e    # browser tests (builds first)
 ```
 
-`npm run test:e2e` builds the app, then runs each suite against its own production server and a fresh throwaway database: `landing`, `login`, `shell`, `order`, `kitchen`, `payments`, `admin`, `setup` (on an empty database) and `a11y` (axe-core WCAG 2.2 AA on every screen, plus a 44 × 44 px minimum for till controls). Run some suites only with `npm run test:e2e -- order kitchen`, or skip the build with `-- --no-build`. Screenshots go to `e2e/output/`. Set `CHROME_PATH` if Chrome or Edge isn't in the usual place.
+`npm run test:e2e` builds the app, then runs each suite against its own production server and a fresh throwaway database: `landing`, `login`, `shell`, `order`, `kitchen`, `payments`, `admin`, `setup` (on an empty database), `backups` and `a11y` (axe-core WCAG 2.2 AA on every screen, plus a 44 × 44 px minimum for till controls). Run some suites only with `npm run test:e2e -- order kitchen`, or skip the build with `-- --no-build`. Screenshots go to `e2e/output/`. Set `CHROME_PATH` if Chrome or Edge isn't in the usual place.
 
 ## Project layout
 
@@ -120,6 +138,7 @@ src/db/                  schema, connection, migrations runner, demo seed
 src/lib/                 business rules (auth, orders, kitchen, tax, money) with unit tests
 drizzle/                 SQL migrations
 e2e/                     browser tests and their runner
+scripts/                 command-line backup and restore
 ```
 
 ## Database changes

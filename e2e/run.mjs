@@ -13,7 +13,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const SUITES = ["landing", "login", "shell", "order", "kitchen", "payments", "admin", "setup", "a11y"];
+const SUITES = ["landing", "login", "shell", "order", "kitchen", "payments", "admin", "setup", "backups", "a11y"];
 /** Extra environment for particular suites: setup needs an empty database. */
 const SUITE_ENV = { setup: { ENYO_SEED_DEMO: "0" } };
 const OUT = path.join(ROOT, "e2e", "output");

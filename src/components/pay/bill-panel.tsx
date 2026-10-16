@@ -37,7 +37,7 @@ export function BillPanel({ view, className = "" }: { view: PaymentView; classNa
             <dd className="whitespace-nowrap tabular-nums">{formatCedis(bill.subtotal)}</dd>
           </div>
           {bill.discount ? (
-            <div className={`${row} text-eating`}>
+            <div className={`${row} text-eating-text`}>
               <dt>
                 Discount{view.order.discountReason ? ` · ${view.order.discountReason}` : ""}
                 {view.order.discountApprovedBy ? <span className="block text-xs text-cream-faint">Approved by {view.order.discountApprovedBy}</span> : null}

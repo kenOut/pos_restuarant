@@ -117,7 +117,7 @@ export function TicketPanel(props: Props) {
                   <span className="tabular-nums">{formatAmount(line.unitPrice * line.quantity)}</span>
                 </div>
                 {line.note ? <p className="mt-0.5 text-sm text-amber/80">{line.note}</p> : null}
-                <p className="mt-1 flex items-center gap-1 text-xs text-eating">
+                <p className="mt-1 flex items-center gap-1 text-xs text-eating-text">
                   <Icon name="check" className="size-3.5" />
                   Sent {line.sentAt ? timeFormat.format(line.sentAt) : ""}
                 </p>
