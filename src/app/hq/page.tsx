@@ -1,23 +1,22 @@
 import Link from "next/link";
 import { Logo } from "@/components/brand/logo";
 import { BranchControls } from "@/components/hq/branch-controls";
-import { getBranchDb, getControlDb } from "@/db";
 import { branchDay } from "@/lib/hq/service";
 import { requireHq } from "@/lib/hq/session";
 import { formatCedis } from "@/lib/money";
-import { branchUrl, hqPath } from "@/lib/tenancy/context";
+import { branchUrl, getControl, hqPath, openBranchDb } from "@/lib/tenancy/context";
 import { listBranches, organisationName } from "@/lib/tenancy/registry";
 import { logoutAction } from "./actions";
 
 export default async function HeadOfficePage({ searchParams }: { searchParams: Promise<{ created?: string }> }) {
   const user = await requireHq();
-  const control = getControlDb();
+  const control = await getControl();
   const { created } = await searchParams;
   const rows = await Promise.all(
     listBranches(control).map(async (branch) => ({
       branch,
       url: await branchUrl(branch.slug),
-      day: branch.active ? branchDay(getBranchDb(branch), branch.id) : null,
+      day: branch.active ? branchDay((await openBranchDb(branch)), branch.id) : null,
     }))
   );
   const days = rows.flatMap((r) => (r.day ? [r.day] : []));

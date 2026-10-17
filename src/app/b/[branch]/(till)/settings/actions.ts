@@ -2,9 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
-import { getControlDb } from "@/db";
 import { branches } from "@/db/control-schema";
-import { getBranch, getBranchFiles, getDb } from "@/lib/tenancy/context";
+import { getBranch, getBranchFiles, getControl, getDb } from "@/lib/tenancy/context";
 import { requireSettingsAccess } from "@/lib/office/session";
 import { publish } from "@/lib/live/bus";
 import { removeLogo, setLogo, updateBusiness, updateDiscountApproval, updateTaxes } from "@/lib/settings/service";
@@ -23,7 +22,7 @@ export async function updateBusinessAction(input: { name: string; receiptFooter:
   const person = await requireSettingsAccess();
   const result = updateBusiness(await getDb(), person, input);
   // Keep the name head office sees in step with the branch's own.
-  if (result.ok) getControlDb().update(branches).set({ name: input.name.trim().replace(/s+/g, " ").slice(0, 60) }).where(eq(branches.id, (await getBranch()).id)).run();
+  if (result.ok) (await getControl()).update(branches).set({ name: input.name.trim().replace(/\s+/g, " ").slice(0, 60) }).where(eq(branches.id, (await getBranch()).id)).run();
   return after(person.restaurantId, result);
 }
 

@@ -1,6 +1,9 @@
 import { redirect } from "next/navigation";
+import { isOnline } from "@/db";
 
-/** Older address for first-time setup. */
+export const dynamic = "force-dynamic";
+
+/** Older address for first-time setup. On ENYO Online, businesses are added from the seller's page. */
 export default function SetupRedirect() {
-  redirect("/hq/setup");
+  redirect(isOnline() ? "/admin" : "/hq/setup");
 }

@@ -65,6 +65,18 @@ Each branch has a back office at `…/b/<branch>/office` (or `osu.yourdomain.com
 - **Reports:** sales by day, by dish, by category and by server; payment methods; taxes (VAT, NHIL and GETFund, as charged, for returns); busiest hours. Printable, and each one downloads as CSV.
 - **Settings:** the branch's settings (as on the till), plus **API access**.
 
+## ENYO Online (many clients on one server)
+
+The same app can run as **ENYO Online**: one internet server holding many client restaurant businesses, each with its own head office, branches and data. A restaurant's own main computer stays as it is (local mode). Linking the two, so each restaurant's data is kept in step online and either side can carry on when the other is down, is the next step (Phase 13b).
+
+- **Turn it on** with `ENYO_MODE=online` and `ENYO_ADMIN_SETUP_CODE=<a long secret of your choosing>`. Keep `ENYO_DATA_DIR` (or `DATABASE_PATH`) on the volume, and set `ENYO_SECURE_COOKIES=1` behind https.
+- **Data:** `data/platform.db` lists the clients and the seller's sign-ins; each client has its own folder, `data/businesses/<id>/`, with its own head office database and branch databases. No client can reach another's data, sign-ins or API keys.
+- **Addresses:** `/c/<client>/hq` for a client's head office, `/c/<client>/b/<branch>` for its branches (tills, back office, data API), `/c/<client>/login` to sign in. The website's **Sign in** asks for the restaurant's address name. With your own domain and `ENYO_BASE_DOMAIN`, `<client>.yourdomain.com` works too.
+- **The seller's page** (`/admin`): the first visit asks for `ENYO_ADMIN_SETUP_CODE` to create your seller account (email and a password of at least 12 characters). It lists every client with its status (waiting for setup, set up, suspended) and branch names, never their sales.
+  - **Add a client:** name and address name. ENYO shows a one-time **setup link**, valid for 14 days; send it to the client. It opens their setup (business, head office sign-in, first branch) and stops working once used. **New setup link** replaces an unused one.
+  - **Suspend** stops a client's tills, back office and API at once; **Reactivate** brings everything back. Nothing is deleted.
+- **On ENYO Online,** clients can't choose a second backup folder (that would mean folders on your server); their backups are taken and kept on the server as usual.
+
 ## Data API
 
 A read-only JSON API per branch, for your central system to collect each branch's records. It can't change anything.
@@ -151,6 +163,8 @@ Put these in `.env.local` (ignored by git) or set them in the environment:
 | ------------------------ | -------------- | -------------------------------------------------------------------------- |
 | `ENYO_DATA_DIR`          | `data`         | Folder for `control.db`, `branches/` and head office backups.              |
 | `DATABASE_PATH`          | none           | Older single-restaurant setting: its database becomes the first branch, and its folder is the data folder unless `ENYO_DATA_DIR` is set. |
+| `ENYO_MODE`              | local          | `online` runs ENYO Online: many client businesses on one server. |
+| `ENYO_ADMIN_SETUP_CODE`  | none           | ENYO Online: the code that creates the first seller account at `/admin`. |
 | `ENYO_BASE_DOMAIN`       | none           | e.g. `yourdomain.com`: turns on branch subdomains and `hq.` for head office. |
 | `ENYO_SEED_DEMO`         | on in dev      | `1` loads the demo data in production too; `0` never loads it.             |
 | `ENYO_SECURE_COOKIES`    | off            | `1` marks the session cookie Secure. Only turn on when serving over https. |
@@ -167,13 +181,14 @@ npm test            # unit tests (Vitest): taxes, sign-in, roles, orders, tables
 npm run test:e2e    # browser tests (builds first)
 ```
 
-`npm run test:e2e` builds the app, then runs each suite against its own production server and a fresh throwaway data folder: `landing`, `login`, `shell`, `order`, `kitchen`, `payments`, `admin`, `setup` (on an empty install), `backups`, `tables` (floor plan statuses live on two tills, the table panel, reservations, one order per table, arrange mode with drag and keys), `office` (back office sign-in, live tracking, lists, CSV, API keys and every API request, key checks, paging, the request limit and browser access), `branches` (head office, separate branch data and sessions, the `/b/` fallback, adding, renaming and closing branches) and `a11y` (axe-core WCAG 2.2 AA on every screen, plus a 44 × 44 px minimum for till controls). Run some suites only with `npm run test:e2e -- order kitchen`, or skip the build with `-- --no-build`. Screenshots go to `e2e/output/`. Set `CHROME_PATH` if Chrome or Edge isn't in the usual place.
+`npm run test:e2e` builds the app, then runs each suite against its own production server and a fresh throwaway data folder: `landing`, `login`, `shell`, `order`, `kitchen`, `payments`, `admin`, `setup` (on an empty install), `backups`, `tables` (floor plan statuses live on two tills, the table panel, reservations, one order per table, arrange mode with drag and keys), `online` (ENYO Online: seller setup, adding clients, one-time setup links, two clients with the same branch name kept apart, suspending), `office` (back office sign-in, live tracking, lists, CSV, API keys and every API request, key checks, paging, the request limit and browser access), `branches` (head office, separate branch data and sessions, the `/b/` fallback, adding, renaming and closing branches) and `a11y` (axe-core WCAG 2.2 AA on every screen, plus a 44 × 44 px minimum for till controls). Run some suites only with `npm run test:e2e -- order kitchen`, or skip the build with `-- --no-build`. Screenshots go to `e2e/output/`. Set `CHROME_PATH` if Chrome or Edge isn't in the usual place.
 
 ## Project layout
 
 ```
 src/proxy.ts             works out the branch from the subdomain or /b/<address>
 src/app/                 website (/), choose a branch (/login)
+src/app/admin/           ENYO Online: the seller's page (clients, setup links, suspend)
 src/app/hq/              head office: setup, sign-in, claim (upgrades), dashboard, add a branch
 src/app/b/[branch]/office/  a branch's back office (dashboard, orders, payments, reports, settings, CSV downloads)
 src/app/b/[branch]/api/v1/  the data API
@@ -191,7 +206,8 @@ src/components/menu/, staff/, settings/, admin/   management screens and their s
 src/components/react-bits/  adapted React Bits text and reveal animations
 src/db/                  branch and head office schemas, connections, migrations runner, demo seed
 src/lib/office/, api/    back office figures and reports; API keys, data and HTTP handling
-src/lib/tenancy/         branches: registry, request context, addresses
+src/lib/platform/        ENYO Online: client businesses, setup links, seller sign-in
+src/lib/tenancy/         businesses and branches: registry, request context, addresses
 src/lib/                 business rules (auth, orders, kitchen, tax, money) with unit tests
 drizzle/                 SQL migrations for branch databases
 drizzle-control/         SQL migrations for the head office database
@@ -207,7 +223,7 @@ The schema is in `src/db/schema.ts`. After changing it, generate a migration and
 npx drizzle-kit generate --name describe-the-change
 ```
 
-For the head office database (`src/db/control-schema.ts`) use `npx drizzle-kit generate --config drizzle.control.config.ts --name describe-the-change`.
+For the ENYO Online platform database (`src/db/platform-schema.ts`) use `npx drizzle-kit generate --config drizzle.platform.config.ts --name describe-the-change`. For the head office database (`src/db/control-schema.ts`) use `npx drizzle-kit generate --config drizzle.control.config.ts --name describe-the-change`.
 
 Migrations are applied automatically when the app starts (and, in development, as soon as they appear).
 

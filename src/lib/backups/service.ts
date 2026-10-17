@@ -2,7 +2,7 @@ import "server-only";
 import fs from "node:fs";
 import path from "node:path";
 import { eq } from "drizzle-orm";
-import { appMigrationCount, closeBranchDb, filesFor, getBranchDb, getControlDb, getDataDir, type Branch } from "@/db";
+import { appMigrationCount, branchDbFor, closeBranchDb, controlDbFor, filesFor, getDataDir, isOnline, type Branch, type Tenant } from "@/db";
 import { branches } from "@/db/control-schema";
 import { restaurants, sessions, type StaffRole } from "@/db/schema";
 import {
@@ -16,7 +16,7 @@ import {
   type BackupKind,
 } from "./core";
 
-/** In-memory state per branch for this server process. */
+/** In-memory state per branch for this server process (keyed by business and branch). */
 type BackupState = { running: Promise<BackupInfo> | null; lastError: string | null; lastCopyError: string | null };
 const globalForBackups = globalThis as unknown as { enyoBackupStates?: Map<string, BackupState> };
 const states = (globalForBackups.enyoBackupStates ??= new Map());
@@ -28,12 +28,12 @@ const stateFor = (branchId: string): BackupState => {
 export const canManageBackups = (role: StaffRole) => role === "owner";
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 
-export function backupsDir(branch: Branch): string {
-  return filesFor(branch).backupsDir;
+export function backupsDir(tenant: Tenant, branch: Branch): string {
+  return filesFor(tenant, branch).backupsDir;
 }
 
-function backupSettings(branch: Branch) {
-  const row = getBranchDb(branch).select({ backupTime: restaurants.backupTime, backupCopyDir: restaurants.backupCopyDir }).from(restaurants).limit(1).get();
+function backupSettings(tenant: Tenant, branch: Branch) {
+  const row = branchDbFor(tenant, branch).select({ backupTime: restaurants.backupTime, backupCopyDir: restaurants.backupCopyDir }).from(restaurants).limit(1).get();
   return { time: row?.backupTime ?? "23:30", copyDir: row?.backupCopyDir ?? null };
 }
 
@@ -51,18 +51,18 @@ export function nextNightly(time: string, now = new Date()): Date {
  * if one is set, then applies the keep rules. Only one backup per branch runs
  * at a time; a second request waits for the one in progress.
  */
-export async function runBackup(branch: Branch, kind: BackupKind, { prune = true } = {}): Promise<BackupInfo> {
-  const state = stateFor(branch.id);
+export async function runBackup(tenant: Tenant, branch: Branch, kind: BackupKind, { prune = true } = {}): Promise<BackupInfo> {
+  const state = stateFor(`${tenant.id}/${branch.id}`);
   if (state.running) return state.running;
   state.running = (async () => {
     try {
-      const { backupsDir: dir, uploadsDir } = filesFor(branch);
-      const info = await createBackup({ source: getBranchDb(branch).$client, backupsDir: dir, uploadsDir, kind });
+      const { backupsDir: dir, uploadsDir } = filesFor(tenant, branch);
+      const info = await createBackup({ source: branchDbFor(tenant, branch).$client, backupsDir: dir, uploadsDir, kind });
       if (info.integrity !== "ok") throw new Error(`The new backup failed its check: ${info.integrity}`);
       if (prune) pruneBackups(dir);
       state.lastError = null;
 
-      const { copyDir } = backupSettings(branch);
+      const { copyDir } = backupSettings(tenant, branch);
       if (copyDir) {
         try {
           // Each branch gets its own folder inside the second copy folder.
@@ -94,12 +94,13 @@ export type BackupStatus = {
   running: boolean;
 };
 
-export function getBackupStatus(branch: Branch): BackupStatus {
-  const settings = backupSettings(branch);
-  const state = stateFor(branch.id);
+export function getBackupStatus(tenant: Tenant, branch: Branch): BackupStatus {
+  const settings = backupSettings(tenant, branch);
+  const state = stateFor(`${tenant.id}/${branch.id}`);
   return {
-    backups: listBackups(backupsDir(branch)),
-    folder: backupsDir(branch),
+    backups: listBackups(backupsDir(tenant, branch)),
+    // On ENYO Online the server's own folders aren't the client's business.
+    folder: isOnline() ? "ENYO Online" : backupsDir(tenant, branch),
     time: settings.time,
     copyDir: settings.copyDir,
     nextRunAt: nextNightly(settings.time).getTime(),
@@ -111,13 +112,15 @@ export function getBackupStatus(branch: Branch): BackupStatus {
 
 type Result = { ok: true } | { ok: false; error: string };
 
-export function updateBackupSettings(branch: Branch, actor: { role: StaffRole }, input: { time: string; copyDir: string }): Result {
+export function updateBackupSettings(tenant: Tenant, branch: Branch, actor: { role: StaffRole }, input: { time: string; copyDir: string }): Result {
   if (!canManageBackups(actor.role)) return { ok: false, error: "Only an owner can change backups." };
   const time = typeof input?.time === "string" ? input.time.trim() : "";
   if (!TIME_PATTERN.test(time)) return { ok: false, error: "Enter the time as HH:MM, e.g. 23:30." };
 
   const raw = typeof input?.copyDir === "string" ? input.copyDir.trim() : "";
   let copyDir: string | null = null;
+  // A client on ENYO Online must never choose folders on the shared server.
+  if (raw && isOnline()) return { ok: false, error: "On ENYO Online, backups are kept for you. A second copy folder is only for the restaurant's own computer." };
   if (raw) {
     if (!path.isAbsolute(raw)) return { ok: false, error: "Enter the full path of the folder, for example E:\\ENYO backups." };
     const resolved = path.resolve(raw);
@@ -136,7 +139,7 @@ export function updateBackupSettings(branch: Branch, actor: { role: StaffRole },
     copyDir = resolved;
   }
 
-  getBranchDb(branch).update(restaurants).set({ backupTime: time, backupCopyDir: copyDir }).where(eq(restaurants.id, branch.id)).run();
+  branchDbFor(tenant, branch).update(restaurants).set({ backupTime: time, backupCopyDir: copyDir }).where(eq(restaurants.id, branch.id)).run();
   return { ok: true };
 }
 
@@ -145,9 +148,9 @@ export function updateBackupSettings(branch: Branch, actor: { role: StaffRole },
  * taken first, so the restore itself can be undone. Everyone at that branch is
  * signed out afterwards; other branches aren't touched.
  */
-export async function restoreBackup(branch: Branch, actor: { role: StaffRole }, id: string): Promise<Result> {
+export async function restoreBackup(tenant: Tenant, branch: Branch, actor: { role: StaffRole }, id: string): Promise<Result> {
   if (!canManageBackups(actor.role)) return { ok: false, error: "Only an owner can restore a backup." };
-  const files = filesFor(branch);
+  const files = filesFor(tenant, branch);
   let problem: string | null;
   try {
     problem = checkRestorable(files.backupsDir, id, appMigrationCount());
@@ -157,15 +160,15 @@ export async function restoreBackup(branch: Branch, actor: { role: StaffRole }, 
   if (problem) return { ok: false, error: problem };
 
   // Not pruned: the backup being restored must survive this extra one.
-  await runBackup(branch, "before-restore", { prune: false });
+  await runBackup(tenant, branch, "before-restore", { prune: false });
 
   // Synchronous from here on, so no other request can touch the database in between.
-  closeBranchDb(branch.id);
+  closeBranchDb(tenant, branch.id);
   restoreFiles({ backupsDir: files.backupsDir, id, dbFile: files.dbFile, uploadsDir: files.uploadsDir });
-  const db = getBranchDb(branch); // reopens, applying any newer migrations
+  const db = branchDbFor(tenant, branch); // reopens, applying any newer migrations
   db.delete(sessions).run(); // everyone signs in again
   // Head office lists the branch under the name in the restored data.
   const restored = db.select({ name: restaurants.name }).from(restaurants).where(eq(restaurants.id, branch.id)).get();
-  if (restored) getControlDb().update(branches).set({ name: restored.name }).where(eq(branches.id, branch.id)).run();
+  if (restored) controlDbFor(tenant).update(branches).set({ name: restored.name }).where(eq(branches.id, branch.id)).run();
   return { ok: true };
 }

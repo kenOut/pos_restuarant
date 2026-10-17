@@ -17,11 +17,15 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const SUITES = ["landing", "login", "shell", "order", "kitchen", "payments", "admin", "setup", "backups", "branches", "tables", "office", "a11y"];
+const SUITES = ["landing", "login", "shell", "order", "kitchen", "payments", "admin", "setup", "backups", "branches", "tables", "office", "online", "a11y"];
 /** Suites that start from the website or head office rather than a branch. */
-const SITE_SUITES = new Set(["landing", "setup", "branches"]);
+const SITE_SUITES = new Set(["landing", "setup", "branches", "online"]);
 /** Extra environment for particular suites: setup needs an empty install. */
-const SUITE_ENV = { setup: { ENYO_SEED_DEMO: "0" } };
+const SUITE_ENV = {
+  setup: { ENYO_SEED_DEMO: "0" },
+  // ENYO Online: many client businesses on one server.
+  online: { ENYO_MODE: "online", ENYO_SEED_DEMO: "0", ENYO_BASE_DOMAIN: "", ENYO_ADMIN_SETUP_CODE: "e2e-server-setup-code" },
+};
 const OUT = path.join(ROOT, "e2e", "output");
 
 const args = process.argv.slice(2);

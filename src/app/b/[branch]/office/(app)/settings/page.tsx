@@ -7,7 +7,7 @@ import { canManageApiKeys, getAllowedOrigins, listApiKeys } from "@/lib/api/keys
 import { canManageBackups, getBackupStatus } from "@/lib/backups/service";
 import { requireOffice } from "@/lib/office/session";
 import { canEditTaxes, getSettings, logoUrl } from "@/lib/settings/service";
-import { branchBase, getBranch, getDb } from "@/lib/tenancy/context";
+import { branchBase, getBranch, getDb, getTenant } from "@/lib/tenancy/context";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -30,7 +30,7 @@ export default async function OfficeSettingsPage() {
         settings={settings}
         logoUrl={logoUrl(await branchBase(), settings.logoFile)}
         canEditTaxes={canEditTaxes(person.role)}
-        backups={canManageBackups(person.role) ? getBackupStatus(await getBranch()) : null}
+        backups={canManageBackups(person.role) ? getBackupStatus(await getTenant(), await getBranch()) : null}
         downloadBase="/office"
       />
       <div className="p-3 sm:p-4">

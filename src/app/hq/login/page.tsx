@@ -2,16 +2,15 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Logo } from "@/components/brand/logo";
 import { HqLoginForm } from "@/components/hq/hq-forms";
-import { getControlDb } from "@/db";
 import { hasHqUsers } from "@/lib/hq/service";
 import { getHqUser } from "@/lib/hq/session";
-import { hqPath } from "@/lib/tenancy/context";
+import { getControl, hqPath } from "@/lib/tenancy/context";
 import { needsSetup } from "@/lib/tenancy/registry";
 
 export const metadata: Metadata = { title: "Sign in" };
 
 export default async function HqLoginPage() {
-  const control = getControlDb();
+  const control = await getControl();
   if (needsSetup(control)) redirect(await hqPath("/setup"));
   if (!hasHqUsers(control)) redirect(await hqPath("/claim"));
   if (await getHqUser()) redirect(await hqPath("/"));

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SettingsForm } from "@/components/settings/settings-form";
-import { branchBase, branchPath, getBranch, getDb } from "@/lib/tenancy/context";
+import { branchBase, branchPath, getBranch, getDb, getTenant } from "@/lib/tenancy/context";
 import { requireStaff } from "@/lib/auth/session";
 import { canManageBackups, getBackupStatus } from "@/lib/backups/service";
 import { canEditTaxes, getSettings, logoUrl } from "@/lib/settings/service";
@@ -25,7 +25,7 @@ export default async function SettingsPage() {
         settings={settings}
         logoUrl={logoUrl(await branchBase(), settings.logoFile)}
         canEditTaxes={canEditTaxes(person.role)}
-        backups={canManageBackups(person.role) ? getBackupStatus(await getBranch()) : null}
+        backups={canManageBackups(person.role) ? getBackupStatus(await getTenant(), await getBranch()) : null}
       />
     </>
   );

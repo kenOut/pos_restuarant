@@ -2,9 +2,8 @@ import "server-only";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
-import { getControlDb } from "@/db";
 import { needsSetup } from "@/lib/tenancy/registry";
-import { hqBase, hqPath } from "@/lib/tenancy/context";
+import { getControl, hqBase, hqPath } from "@/lib/tenancy/context";
 import { createHqSession, deleteHqSession, findHqSessionUser, hasHqUsers, type HqSessionUser } from "./service";
 
 const COOKIE = "enyo_hq";
@@ -15,7 +14,7 @@ async function cookiePath(): Promise<string> {
 }
 
 export async function startHqSession(userId: string): Promise<void> {
-  const { token, expiresAt } = createHqSession(getControlDb(), userId);
+  const { token, expiresAt } = createHqSession((await getControl()), userId);
   (await cookies()).set(COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
@@ -27,7 +26,7 @@ export async function startHqSession(userId: string): Promise<void> {
 
 export const getHqUser = cache(async (): Promise<HqSessionUser | null> => {
   const token = (await cookies()).get(COOKIE)?.value;
-  return token ? findHqSessionUser(getControlDb(), token) : null;
+  return token ? findHqSessionUser((await getControl()), token) : null;
 });
 
 /**
@@ -36,7 +35,7 @@ export const getHqUser = cache(async (): Promise<HqSessionUser | null> => {
  * everyone else who isn't signed in to the head office sign-in.
  */
 export async function requireHq(): Promise<HqSessionUser> {
-  const control = getControlDb();
+  const control = await getControl();
   if (needsSetup(control)) redirect(await hqPath("/setup"));
   if (!hasHqUsers(control)) redirect(await hqPath("/claim"));
   const user = await getHqUser();
@@ -47,6 +46,6 @@ export async function requireHq(): Promise<HqSessionUser> {
 export async function endHqSession(): Promise<void> {
   const store = await cookies();
   const token = store.get(COOKIE)?.value;
-  if (token) deleteHqSession(getControlDb(), token);
+  if (token) deleteHqSession((await getControl()), token);
   store.set(COOKIE, "", { path: await cookiePath(), maxAge: 0 });
 }

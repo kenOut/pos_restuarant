@@ -1,16 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { NewBranchForm } from "@/components/hq/hq-forms";
-import { getControlDb } from "@/db";
 import { requireHq } from "@/lib/hq/session";
-import { hqPath } from "@/lib/tenancy/context";
+import { getControl, hqPath } from "@/lib/tenancy/context";
 import { listBranches } from "@/lib/tenancy/registry";
 
 export const metadata: Metadata = { title: "Add a branch" };
 
 export default async function NewBranchPage() {
   await requireHq();
-  const branches = listBranches(getControlDb()).map((b) => ({ id: b.id, name: b.name }));
+  const branches = listBranches(await getControl()).map((b) => ({ id: b.id, name: b.name }));
   return (
     <main className="mx-auto w-full max-w-lg px-4 py-10">
       <Link href={await hqPath("/")} className="inline-flex min-h-11 items-center text-amber underline-offset-4 hover:underline">

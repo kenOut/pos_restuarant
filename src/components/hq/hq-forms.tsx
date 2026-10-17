@@ -100,7 +100,8 @@ function BranchNameFields({ id, addressHint }: { id: string; addressHint: string
 
 const ADDRESS_HINT = "Lower-case letters, numbers and dashes. With your own domain it becomes osu.yourdomain.com.";
 
-export function HqSetupForm() {
+/** setupCode: on ENYO Online, the code from the business's one-time setup link. */
+export function HqSetupForm({ setupCode }: { setupCode?: string }) {
   const id = useId();
   const [state, formAction, pending] = useActionState<HqFormState, FormData>(setupAction, null);
   const business = useText();
@@ -110,6 +111,7 @@ export function HqSetupForm() {
 
   return (
     <form action={formAction} className="mt-8 space-y-6">
+      {setupCode ? <input type="hidden" name="setupCode" value={setupCode} /> : null}
       <Section title="Your business">
         <Field id={`${id}-business`} label="Business name" hint="The name over all your branches.">
           <input id={`${id}-business`} name="businessName" required maxLength={60} autoComplete="organization" {...business} className={inputClass} />

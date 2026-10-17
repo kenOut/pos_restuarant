@@ -67,18 +67,19 @@ export const DEMO_BRANCHES = [
  *  3. Development with demo data: a demo business with two branches.
  *  4. Otherwise: left empty for first-time setup.
  */
-export function initialiseControl(control: ControlDb, dataDir: string, opts: { legacyDbFile: string; seedDemo: boolean }): "ready" | "adopted" | "demo" | "needs-setup" {
+export function initialiseControl(control: ControlDb, dataDir: string, opts: { legacyDbFile: string | null; seedDemo: boolean }): "ready" | "adopted" | "demo" | "needs-setup" {
   if (!needsSetup(control)) return "ready";
 
-  if (fs.existsSync(opts.legacyDbFile)) {
-    const legacy = openDatabase(opts.legacyDbFile);
+  const legacyFile = opts.legacyDbFile;
+  if (legacyFile && fs.existsSync(legacyFile)) {
+    const legacy = openDatabase(legacyFile);
     try {
       const restaurant = legacy.select({ id: restaurants.id, name: restaurants.name }).from(restaurants).get();
       if (restaurant) {
         const slug = isValidSlug(slugify(restaurant.name)) ? slugify(restaurant.name) : "main";
         control.transaction((tx) => {
           tx.insert(organisation).values({ id: randomUUID(), name: restaurant.name }).run();
-          tx.insert(branches).values({ id: restaurant.id, slug, name: restaurant.name, dbPath: path.relative(dataDir, opts.legacyDbFile) }).run();
+          tx.insert(branches).values({ id: restaurant.id, slug, name: restaurant.name, dbPath: path.relative(dataDir, legacyFile) }).run();
         });
         return "adopted";
       }

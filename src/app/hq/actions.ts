@@ -2,10 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getBranchDb, getControlDb, getDataDir } from "@/db";
 import { checkHqLogin, claimHeadOffice, setupBusiness } from "@/lib/hq/service";
 import { endHqSession, requireHq, startHqSession } from "@/lib/hq/session";
-import { hqPath } from "@/lib/tenancy/context";
+import { getPlatformDb, isOnline } from "@/db";
+import { checkSetupCode, clearSetupCode } from "@/lib/platform/service";
+import { branchOpener, businessSlug, getControl, getTenant, hqPath, openBranchDb } from "@/lib/tenancy/context";
 import { createBranch, findBranchById, renameBranch, setBranchActive, type MenuStart } from "@/lib/tenancy/registry";
 
 export type HqFormState = { error: string } | null;
@@ -19,9 +20,14 @@ function matchingPins(data: FormData): string | null {
 export async function setupAction(_: HqFormState, data: FormData): Promise<HqFormState> {
   const mismatch = matchingPins(data);
   if (mismatch) return { error: mismatch };
+  // On ENYO Online, only whoever has the business's setup link can set it up.
+  const slug = await businessSlug();
+  if (isOnline() && (!slug || !checkSetupCode(getPlatformDb(), slug, text(data, "setupCode")))) {
+    return { error: "This setup link isn't valid or has expired. Ask ENYO for a new one." };
+  }
   const result = await setupBusiness(
-    getControlDb(),
-    getDataDir(),
+    await getControl(),
+    (await getTenant()).dataDir,
     {
       businessName: text(data, "businessName"),
       name: text(data, "name"),
@@ -32,15 +38,16 @@ export async function setupAction(_: HqFormState, data: FormData): Promise<HqFor
       pin: text(data, "pin"),
       sampleMenu: data.get("sampleMenu") === "on",
     },
-    getBranchDb
+    await branchOpener()
   );
   if (!result.ok) return { error: result.error };
+  if (isOnline() && slug) clearSetupCode(getPlatformDb(), slug);
   await startHqSession(result.userId);
   redirect(await hqPath("/"));
 }
 
 export async function loginAction(_: HqFormState, data: FormData): Promise<HqFormState> {
-  const result = await checkHqLogin(getControlDb(), text(data, "email"), text(data, "password"));
+  const result = await checkHqLogin(await getControl(), text(data, "email"), text(data, "password"));
   if (!result.ok) return { error: result.error };
   await startHqSession(result.userId);
   redirect(await hqPath("/"));
@@ -53,9 +60,9 @@ export async function logoutAction(): Promise<void> {
 
 export async function claimAction(_: HqFormState, data: FormData): Promise<HqFormState> {
   const [branchId, ownerStaffId] = text(data, "owner").split(":");
-  const branch = branchId ? findBranchById(getControlDb(), branchId) : undefined;
+  const branch = branchId ? findBranchById(await getControl(), branchId) : undefined;
   if (!branch) return { error: "Choose one of the branch's owners." };
-  const result = await claimHeadOffice(getControlDb(), getBranchDb(branch), {
+  const result = await claimHeadOffice(await getControl(), await openBranchDb(branch), {
     ownerStaffId: ownerStaffId ?? "",
     pin: text(data, "pin"),
     name: text(data, "name"),
@@ -76,10 +83,10 @@ export async function createBranchAction(_: HqFormState, data: FormData): Promis
     ? { kind: "copy", fromBranchId: menuChoice.slice(5) }
     : { kind: menuChoice === "sample" ? "sample" : "empty" };
   const result = await createBranch(
-    getControlDb(),
-    getDataDir(),
+    await getControl(),
+    (await getTenant()).dataDir,
     { name: text(data, "branchName"), slug: text(data, "branchSlug"), leadName: text(data, "leadName"), pin: text(data, "pin"), menu },
-    getBranchDb
+    await branchOpener()
   );
   if (!result.ok) return { error: result.error };
   revalidatePath("/hq", "layout");
@@ -88,9 +95,9 @@ export async function createBranchAction(_: HqFormState, data: FormData): Promis
 
 export async function renameBranchAction(_: HqFormState, data: FormData): Promise<HqFormState> {
   await requireHq();
-  const branch = findBranchById(getControlDb(), text(data, "branchId"));
+  const branch = findBranchById(await getControl(), text(data, "branchId"));
   if (!branch) return { error: "That branch no longer exists." };
-  const result = renameBranch(getControlDb(), branch.id, text(data, "name"), getBranchDb(branch));
+  const result = renameBranch(await getControl(), branch.id, text(data, "name"), await openBranchDb(branch));
   if (!result.ok) return { error: result.error };
   revalidatePath("/hq", "layout");
   revalidatePath("/b/[branch]", "layout");
@@ -99,7 +106,7 @@ export async function renameBranchAction(_: HqFormState, data: FormData): Promis
 
 export async function setBranchActiveAction(_: HqFormState, data: FormData): Promise<HqFormState> {
   await requireHq();
-  const result = setBranchActive(getControlDb(), text(data, "branchId"), text(data, "active") === "1");
+  const result = setBranchActive(await getControl(), text(data, "branchId"), text(data, "active") === "1");
   if (!result.ok) return { error: result.error };
   revalidatePath("/hq", "layout");
   return null;
