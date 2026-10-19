@@ -1,13 +1,16 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { checkHqLogin, claimHeadOffice, setupBusiness } from "@/lib/hq/service";
 import { endHqSession, requireHq, startHqSession } from "@/lib/hq/session";
 import { getPlatformDb, isOnline } from "@/db";
 import { checkSetupCode, clearSetupCode } from "@/lib/platform/service";
-import { branchOpener, businessSlug, getControl, getTenant, hqPath, openBranchDb } from "@/lib/tenancy/context";
-import { createBranch, findBranchById, renameBranch, setBranchActive, type MenuStart } from "@/lib/tenancy/registry";
+import { connect, disconnect, resyncAll, syncNow } from "@/lib/sync/client";
+import { createPairingKey } from "@/lib/sync/server";
+import { branchOpener, businessBase, businessSlug, getControl, getTenant, hqPath, openBranchDb } from "@/lib/tenancy/context";
+import { createBranch, findBranchById, needsSetup, renameBranch, setBranchActive, type MenuStart } from "@/lib/tenancy/registry";
 
 export type HqFormState = { error: string } | null;
 
@@ -110,4 +113,79 @@ export async function setBranchActiveAction(_: HqFormState, data: FormData): Pro
   if (!result.ok) return { error: result.error };
   revalidatePath("/hq", "layout");
   return null;
+}
+
+// ---------- Sync with ENYO Online
+
+type SyncResult = { ok: true } | { ok: false; error: string };
+
+/** ENYO Online: a key for the restaurant's computer (replaces any earlier one). Shown once. */
+export async function createPairingKeyAction(): Promise<{ ok: true; key: string; address: string } | { ok: false; error: string }> {
+  if (!isOnline()) return { ok: false, error: "Sync keys are made on ENYO Online." };
+  await requireHq();
+  const key = createPairingKey(await getControl());
+  revalidatePath("/hq", "layout");
+  return { ok: true, key, address: await onlineAddress() };
+}
+
+/**
+ * ENYO Online, during setup: the client already uses ENYO POS on their own
+ * computer, so the business is filled from there instead of set up here.
+ */
+export async function pairFromSetupAction(setupCode: string): Promise<{ ok: true; key: string; address: string } | { ok: false; error: string }> {
+  const slug = await businessSlug();
+  if (!isOnline() || !slug || !checkSetupCode(getPlatformDb(), slug, String(setupCode ?? ""))) return { ok: false, error: "This setup link isn't valid or has expired. Ask ENYO for a new one." };
+  if (!needsSetup(await getControl())) return { ok: false, error: "This business is already set up." };
+  const key = createPairingKey(await getControl());
+  clearSetupCode(getPlatformDb(), slug);
+  return { ok: true, key, address: await onlineAddress() };
+}
+
+/** The business's ENYO Online address, as the client reached it. */
+async function onlineAddress(): Promise<string> {
+  const h = await headers();
+  const host = (h.get("x-forwarded-host") ?? h.get("host") ?? "").split(",")[0].trim();
+  const protocol = (h.get("x-forwarded-proto") ?? "http").split(",")[0].trim();
+  return `${protocol}://${host}${await businessBase()}`;
+}
+
+/**
+ * The restaurant's computer: connect to ENYO Online. From head office, or
+ * during first-time setup to take the business from ENYO Online instead.
+ */
+export async function connectOnlineAction(input: { url: string; key: string }): Promise<SyncResult> {
+  if (isOnline()) return { ok: false, error: "Connect from the restaurant's own computer." };
+  const fromSetup = needsSetup(await getControl());
+  if (!fromSetup) await requireHq();
+  const result = await connect(input);
+  if (!result.ok) return result;
+  const first = await syncNow();
+  revalidatePath("/hq", "layout");
+  if (fromSetup) {
+    if (!first.ok) return first;
+    redirect(await hqPath("/login"));
+  }
+  return { ok: true };
+}
+
+export async function syncNowAction(): Promise<SyncResult> {
+  await requireHq();
+  const result = await syncNow();
+  revalidatePath("/hq", "layout");
+  return result;
+}
+
+export async function resyncAction(): Promise<SyncResult> {
+  await requireHq();
+  resyncAll();
+  const result = await syncNow();
+  revalidatePath("/hq", "layout");
+  return result;
+}
+
+export async function disconnectOnlineAction(): Promise<SyncResult> {
+  await requireHq();
+  disconnect();
+  revalidatePath("/hq", "layout");
+  return { ok: true };
 }

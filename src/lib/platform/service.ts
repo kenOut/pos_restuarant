@@ -5,6 +5,7 @@ import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypt
 import { hash, verify } from "@node-rs/argon2";
 import { and, asc, eq, gt, lte, sql } from "drizzle-orm";
 import type { ControlDb } from "@/db/control-client";
+import { syncPeers } from "@/db/control-schema";
 import type { PlatformDb } from "@/db/platform-client";
 import { businesses, platformAdmins, platformSessions, type Business } from "@/db/platform-schema";
 import { listBranches, needsSetup } from "@/lib/tenancy/registry";
@@ -85,6 +86,9 @@ export type BusinessOverview = {
   setUp: boolean;
   setupLinkExpiresAt: number | null;
   branches: { name: string; active: boolean }[];
+  /** When its restaurant computer last synced; null if none is connected. */
+  restaurantComputerContactAt: number | null;
+  restaurantComputerPaired: boolean;
 };
 
 /** Every business with its status and branch names. `openControl` opens a business's head office database. */
@@ -96,6 +100,7 @@ export function listBusinesses(platform: PlatformDb, openControl: (business: Bus
     .all()
     .map((b) => {
       const control = openControl(b);
+      const peer = control.select().from(syncPeers).get();
       return {
         id: b.id,
         slug: b.slug,
@@ -105,6 +110,8 @@ export function listBusinesses(platform: PlatformDb, openControl: (business: Bus
         setUp: !needsSetup(control),
         setupLinkExpiresAt: b.setupCodeExpiresAt?.getTime() ?? null,
         branches: listBranches(control).map((x) => ({ name: x.name, active: x.active })),
+        restaurantComputerContactAt: peer?.lastContactAt?.getTime() ?? null,
+        restaurantComputerPaired: !!peer,
       };
     });
 }

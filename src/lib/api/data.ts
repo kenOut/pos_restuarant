@@ -8,6 +8,7 @@ import type { Summary } from "@/lib/office/reports";
 import type { OrderSummary } from "@/lib/orders/service";
 import { taxLinesForDisplay } from "@/lib/payments/bill";
 import { getPaymentView, type PaymentRecord } from "@/lib/payments/service";
+import { formatOrderNumber } from "@/lib/orders/shared";
 
 export const API_VERSION = "1";
 export const MAX_LIMIT = 200;
@@ -43,6 +44,7 @@ export function orderJson(db: Db, restaurantId: string, orderId: string) {
   return {
     id: o.id,
     number: o.number,
+    number_label: formatOrderNumber(o.number),
     type: o.type,
     status: o.status,
     table: o.tableLabel,
@@ -78,6 +80,7 @@ export function receiptJson(db: Db, restaurantId: string, orderId: string) {
     restaurant_name: view.restaurantName,
     order_id: o.id,
     order_number: o.number,
+    order_label: formatOrderNumber(o.number),
     type: o.type,
     table: o.tableLabel,
     customer_name: o.customerName,
@@ -198,7 +201,7 @@ export function listPaymentsJson(db: Db, restaurantId: string, q: ListQuery): Li
   const last = page.at(-1);
   return {
     ok: true,
-    data: page.map((p) => ({ ...paymentJson(byOrder.get(p.orderId)!.find((r) => r.id === p.id)!), order_id: p.orderId, order_number: p.number })),
+    data: page.map((p) => ({ ...paymentJson(byOrder.get(p.orderId)!.find((r) => r.id === p.id)!), order_id: p.orderId, order_number: p.number, order_label: formatOrderNumber(p.number) })),
     next_cursor: rows.length > page.length && last ? encodeCursor(last.createdAt.getTime(), last.id) : null,
   };
 }
@@ -207,6 +210,7 @@ export function activeOrderJson(o: OrderSummary) {
   return {
     id: o.id,
     number: o.number,
+    number_label: formatOrderNumber(o.number),
     type: o.type,
     status: o.status,
     kitchen: o.kitchen,

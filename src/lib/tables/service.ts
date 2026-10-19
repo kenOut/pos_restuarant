@@ -18,6 +18,7 @@ import {
   fits,
   type TableStatus,
 } from "./shared";
+import { formatOrderNumber } from "@/lib/orders/shared";
 
 export type Result = { ok: true } | { ok: false; error: string };
 const fail = (error: string): { ok: false; error: string } => ({ ok: false, error });
@@ -233,7 +234,7 @@ export function deleteTable(db: Db, actor: Actor, id: string): Result {
   const table = findTable(db, actor.restaurantId, id);
   if (!table) return fail("That table no longer exists.");
   const open = openOrderOn(db, table.id);
-  if (open) return fail(`${table.label} has order #${open.number} open. Finish or move it first.`);
+  if (open) return fail(`${table.label} has order #${formatOrderNumber(open.number)} open. Finish or move it first.`);
   // Past orders keep the table's name; their link to it is cleared.
   db.delete(diningTables).where(eq(diningTables.id, table.id)).run();
   return OK;

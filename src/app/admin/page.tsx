@@ -9,6 +9,7 @@ import { adminLogoutAction } from "./actions";
 export const metadata: Metadata = { title: "Clients" };
 
 const day = new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeZone: "Africa/Accra" });
+const time = new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Africa/Accra" });
 
 /** Every client restaurant on this server: status and branches only, never their sales. */
 export default async function AdminPage() {
@@ -57,6 +58,11 @@ export default async function AdminPage() {
                   /c/{c.slug} · added {day.format(c.createdAt)}
                   {c.branches.length ? ` · ${c.branches.length} branch${c.branches.length === 1 ? "" : "es"}: ${c.branches.map((b) => b.name).join(", ")}` : ""}
                 </p>
+                {c.restaurantComputerPaired ? (
+                  <p className="text-sm text-cream-muted">
+                    Restaurant computer: {c.restaurantComputerContactAt ? `last contact ${time.format(c.restaurantComputerContactAt)}` : "key made, not connected yet"}
+                  </p>
+                ) : null}
               </div>
               {c.active && c.setUp ? (
                 <a href={`/c/${c.slug}/hq`} className="inline-flex min-h-11 items-center rounded-xl border border-ink-600 px-4 text-sm font-semibold hover:bg-ink-800">

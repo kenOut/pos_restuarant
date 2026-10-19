@@ -1,6 +1,6 @@
 import { getOfficeStaff } from "@/lib/office/session";
 import { getReports, listOrders, listPayments, orderFiltersFrom, paymentFiltersFrom, resolveRange, STATUS_LABELS } from "@/lib/office/reports";
-import { ORDER_TYPE_LABELS } from "@/lib/orders/shared";
+import { ORDER_TYPE_LABELS, formatOrderNumber } from "@/lib/orders/shared";
 import { METHOD_LABELS, NETWORK_LABELS } from "@/lib/payments/labels";
 import { getDb } from "@/lib/tenancy/context";
 
@@ -37,7 +37,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ kind
       const { rows } = listOrders(db, rid, orderFiltersFrom(q, range), 1, MAX_ROWS);
       csv = toCsv(
         ["Order", "Opened", "Paid", "Status", "Type", "Table", "Customer", "Server", "Items", "Total (GH₵)", "Paid (GH₵)"],
-        rows.map((o) => [o.number, iso(o.openedAt), iso(o.paidAt), STATUS_LABELS[o.status], ORDER_TYPE_LABELS[o.type], o.tableLabel, o.customerName, o.staffName, o.itemCount, cedis(o.total), cedis(o.paid)])
+        rows.map((o) => [formatOrderNumber(o.number), iso(o.openedAt), iso(o.paidAt), STATUS_LABELS[o.status], ORDER_TYPE_LABELS[o.type], o.tableLabel, o.customerName, o.staffName, o.itemCount, cedis(o.total), cedis(o.paid)])
       );
       break;
     }
@@ -45,7 +45,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ kind
       const { rows } = listPayments(db, rid, paymentFiltersFrom(q, range), 1, MAX_ROWS);
       csv = toCsv(
         ["Taken", "Order", "Method", "Network", "Account", "Reference", "Taken by", "Amount (GH₵)", "Tendered (GH₵)", "Change (GH₵)"],
-        rows.map((p) => [iso(p.createdAt), p.orderNumber, METHOD_LABELS[p.method], p.network ? NETWORK_LABELS[p.network] : null, p.account, p.reference, p.staffName, cedis(p.amount), p.tendered === null ? null : cedis(p.tendered), p.change === null ? null : cedis(p.change)])
+        rows.map((p) => [iso(p.createdAt), formatOrderNumber(p.orderNumber), METHOD_LABELS[p.method], p.network ? NETWORK_LABELS[p.network] : null, p.account, p.reference, p.staffName, cedis(p.amount), p.tendered === null ? null : cedis(p.tendered), p.change === null ? null : cedis(p.change)])
       );
       break;
     }

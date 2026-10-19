@@ -7,6 +7,7 @@ import { listPayments, listStaffForFilters, paymentFiltersFrom, paymentTotals, r
 import { requireOffice } from "@/lib/office/session";
 import { METHOD_LABELS, NETWORK_LABELS } from "@/lib/payments/labels";
 import { branchPath, getDb } from "@/lib/tenancy/context";
+import { formatOrderNumber } from "@/lib/orders/shared";
 
 export const metadata: Metadata = { title: "Payments" };
 
@@ -112,7 +113,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
                   <td className="tabular-nums">{time.format(p.createdAt)}</td>
                   <td>
                     <Link href={`${ordersPath}/${p.orderId}`} className="inline-flex min-h-11 min-w-11 items-center font-semibold text-amber underline-offset-4 hover:underline">
-                      #{p.orderNumber}
+                      #{formatOrderNumber(p.orderNumber)}
                     </Link>
                   </td>
                   <td>

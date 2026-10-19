@@ -6,11 +6,18 @@ import { requireHq } from "@/lib/hq/session";
 import { formatCedis } from "@/lib/money";
 import { branchUrl, getControl, hqPath, openBranchDb } from "@/lib/tenancy/context";
 import { listBranches, organisationName } from "@/lib/tenancy/registry";
+import { OnlinePanel, RestaurantComputerPanel } from "@/components/hq/online-sync";
+import { isOnline } from "@/db";
+import { getSyncStatus } from "@/lib/sync/client";
+import { getPeer } from "@/lib/sync/server";
 import { logoutAction } from "./actions";
 
 export default async function HeadOfficePage({ searchParams }: { searchParams: Promise<{ created?: string }> }) {
   const user = await requireHq();
   const control = await getControl();
+  // Sync with ENYO Online: on ENYO Online, the business's restaurant computer; on that computer, its link to ENYO Online.
+  const peer = isOnline() ? getPeer(control) : undefined;
+  const sync = isOnline() ? null : getSyncStatus();
   const { created } = await searchParams;
   const rows = await Promise.all(
     listBranches(control).map(async (branch) => ({
@@ -128,6 +135,12 @@ export default async function HeadOfficePage({ searchParams }: { searchParams: P
           ))}
         </ul>
       </section>
+
+      {isOnline() ? (
+        <RestaurantComputerPanel paired={!!peer} lastContactAt={peer?.lastContactAt?.getTime() ?? null} />
+      ) : (
+        <OnlinePanel status={sync?.connected ? sync : null} />
+      )}
     </main>
   );
 }

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Logo } from "@/components/brand/logo";
 import { HqSetupForm } from "@/components/hq/hq-forms";
+import { ConnectOnlineForm, PairFromSetup } from "@/components/hq/online-sync";
 import { getPlatformDb, isOnline } from "@/db";
 import { checkSetupCode } from "@/lib/platform/service";
 import { businessSlug, getControl, hqPath } from "@/lib/tenancy/context";
@@ -25,7 +26,19 @@ export default async function HqSetupPage({ searchParams }: { searchParams: Prom
             Create your business, your head office sign-in and your first branch. You can add more branches afterwards; each one
             keeps its own data.
           </p>
+          {isOnline() && code ? <PairFromSetup setupCode={code} /> : null}
           <HqSetupForm setupCode={isOnline() ? code : undefined} />
+          {isOnline() ? null : (
+            <section aria-labelledby="from-online" className="mt-10 space-y-3 rounded-2xl border border-ink-700 bg-ink-850 p-4">
+              <h2 id="from-online" className="font-display text-xl font-semibold">
+                Already on ENYO Online?
+              </h2>
+              <p className="text-sm text-cream-muted">
+                Connect this computer to your business on ENYO Online instead: its branches, menu, staff and sales come across, and the two stay in step.
+              </p>
+              <ConnectOnlineForm fromSetup />
+            </section>
+          )}
         </>
       ) : (
         <p role="alert" className="mt-4 text-cream-muted">

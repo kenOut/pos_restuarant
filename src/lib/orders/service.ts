@@ -17,7 +17,7 @@ import {
 } from "@/db/schema";
 import { computeBill } from "@/lib/payments/bill";
 import { getTaxConfig } from "@/lib/settings/service";
-import { FIRST_ORDER_NUMBER, LABEL_MAX, MAX_LINES, MAX_QUANTITY, NOTE_MAX } from "./shared";
+import { FIRST_ORDER_NUMBER, LABEL_MAX, MAX_LINES, MAX_QUANTITY, NOTE_MAX, ONLINE_SERIES, formatOrderNumber } from "./shared";
 
 export { FIRST_ORDER_NUMBER };
 
@@ -253,7 +253,7 @@ export function saveOrder(db: Db, actor: Actor, input: SaveOrderInput, now = new
         .from(orders)
         .where(and(eq(orders.tableId, table.id), inArray(orders.status, ["held", "open"])))
         .get();
-      if (busy && busy.id !== input.orderId) return fail(`${table.label} already has order #${busy.number} open. Open that order to add to it.`);
+      if (busy && busy.id !== input.orderId) return fail(`${table.label} already has order #${formatOrderNumber(busy.number)} open. Open that order to add to it.`);
       tableId = table.id;
       tableLabel = table.label;
     }
@@ -332,12 +332,14 @@ function writeOrder(db: Db, actor: Actor, input: SaveOrderInput, checked: Checke
         .run();
       tx.delete(orderLines).where(and(eq(orderLines.orderId, orderId), isNull(orderLines.ticketId))).run();
     } else {
+      // Each side numbers in its own range: the restaurant 1001…, ENYO Online W1001… (see ONLINE_SERIES).
+      const series = process.env.ENYO_MODE === "online" ? ONLINE_SERIES : 0;
       const last = tx
         .select({ max: sql<number | null>`max(${orders.number})` })
         .from(orders)
-        .where(eq(orders.restaurantId, actor.restaurantId))
+        .where(and(eq(orders.restaurantId, actor.restaurantId), series ? sql`${orders.number} >= ${series}` : sql`${orders.number} < ${ONLINE_SERIES}`))
         .get();
-      const number = Math.max((last?.max ?? 0) + 1, FIRST_ORDER_NUMBER);
+      const number = Math.max((last?.max ?? 0) + 1, series + FIRST_ORDER_NUMBER);
       orderId = randomUUID();
       tx.insert(orders)
         .values({

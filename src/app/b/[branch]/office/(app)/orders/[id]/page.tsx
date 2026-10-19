@@ -5,7 +5,7 @@ import { DataTable, OfficeHeader, buttonLinkClass } from "@/components/office/pa
 import { formatCedis } from "@/lib/money";
 import { STATUS_LABELS } from "@/lib/office/reports";
 import { requireOffice } from "@/lib/office/session";
-import { ORDER_TYPE_LABELS } from "@/lib/orders/shared";
+import { ORDER_TYPE_LABELS, formatOrderNumber } from "@/lib/orders/shared";
 import { taxLinesForDisplay } from "@/lib/payments/bill";
 import { describePayment } from "@/lib/payments/labels";
 import { getPaymentView } from "@/lib/payments/service";
@@ -25,7 +25,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   return (
     <div>
       <OfficeHeader
-        title={`Order #${order.number}`}
+        title={`Order #${formatOrderNumber(order.number)}`}
         description={`${STATUS_LABELS[order.status]} · ${ORDER_TYPE_LABELS[order.type]}${order.tableLabel ? ` · Table ${order.tableLabel}` : ""}${order.customerName ? ` · ${order.customerName}` : ""}`}
         actions={
           <div className="flex flex-wrap gap-2">

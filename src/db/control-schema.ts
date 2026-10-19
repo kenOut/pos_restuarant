@@ -67,3 +67,30 @@ export const hqSessions = sqliteTable(
 
 export type Branch = typeof branches.$inferSelect;
 export type HqUser = typeof hqUsers.$inferSelect;
+
+/**
+ * On a restaurant's computer: its link to ENYO Online (one row). The key is
+ * needed to call ENYO Online, so it's kept here, on this computer only.
+ */
+export const syncLink = sqliteTable("sync_link", {
+  id: text("id").primaryKey(),
+  /** e.g. https://posrestuarant.up.railway.app/c/mamaakos */
+  url: text("url").notNull(),
+  key: text("key").notNull(),
+  connectedAt: integer("connected_at", { mode: "timestamp_ms" }).notNull(),
+  lastContactAt: integer("last_contact_at", { mode: "timestamp_ms" }),
+  lastError: text("last_error"),
+});
+
+/** On ENYO Online: the restaurant computer allowed to sync with this business. Only a hash of its key is kept. */
+export const syncPeers = sqliteTable("sync_peers", {
+  id: text("id").primaryKey(),
+  keyHash: text("key_hash").notNull(),
+  /** The restaurant computer's sync node, fixed on its first contact. */
+  nodeId: text("node_id"),
+  createdAt: createdAt(),
+  lastContactAt: integer("last_contact_at", { mode: "timestamp_ms" }),
+});
+
+export type SyncLink = typeof syncLink.$inferSelect;
+export type SyncPeer = typeof syncPeers.$inferSelect;

@@ -3,6 +3,13 @@
 import type { OrderType } from "@/db/schema";
 
 export const FIRST_ORDER_NUMBER = 1001;
+/**
+ * Orders taken on ENYO Online are numbered in their own range, so they never
+ * clash with the restaurant computer's when the two sync: 501001 shows as W1001.
+ */
+export const ONLINE_SERIES = 500_000;
+/** An order number as people see it: 1042, or W1001 for one taken online. */
+export const formatOrderNumber = (n: number) => (n >= ONLINE_SERIES ? `W${n - ONLINE_SERIES}` : String(n));
 export const MAX_QUANTITY = 99;
 export const MAX_LINES = 100;
 export const NOTE_MAX = 140;

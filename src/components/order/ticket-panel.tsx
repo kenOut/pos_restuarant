@@ -6,7 +6,7 @@ import { ORDER_TYPES, type OrderType } from "@/db/enums";
 import { draftTotals, unsentCount, type Draft } from "@/lib/orders/draft";
 import { taxLinesForDisplay } from "@/lib/payments/bill";
 import type { TaxConfig } from "@/lib/tax-config";
-import { LABEL_MAX, NOTE_MAX, ORDER_TYPE_LABELS, QUICK_NOTES } from "@/lib/orders/shared";
+import { LABEL_MAX, NOTE_MAX, ORDER_TYPE_LABELS, QUICK_NOTES, formatOrderNumber } from "@/lib/orders/shared";
 import { formatAmount, formatCedis } from "@/lib/money";
 import type { TableOption } from "@/lib/tables/service";
 
@@ -58,7 +58,7 @@ export function TicketPanel(props: Props) {
         <div className="min-w-0 flex-1">
           <h2 id={`${fieldId}-title`} className="font-display text-xl font-bold">
             {ORDER_TYPE_LABELS[draft.type]}
-            {draft.number ? <span className="text-cream-muted"> · #{draft.number}</span> : null}
+            {draft.number ? <span className="text-cream-muted"> · #{formatOrderNumber(draft.number)}</span> : null}
           </h2>
           <p className="truncate text-sm text-cream-faint">{draft.staffName ?? staffName}</p>
         </div>

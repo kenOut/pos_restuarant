@@ -31,7 +31,7 @@ export function receiptHtml(r: Receipt): string {
     .join("");
   return `<!doctype html>
 <html lang="en-GH"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${title} #${r.order_number} · ${escape(r.restaurant_name)}</title>
+<title>${title} #${r.order_label} · ${escape(r.restaurant_name)}</title>
 <style>
   body { margin: 0; background: #fff; color: #000; font: 12px/1.4 ui-monospace, Menlo, Consolas, monospace; }
   main { width: 80mm; max-width: 100%; margin: 0 auto; padding: 16px; box-sizing: border-box; }
@@ -44,7 +44,7 @@ export function receiptHtml(r: Receipt): string {
 </style></head>
 <body><main>
   <h1>${escape(r.restaurant_name)}</h1>
-  <p class="centre"><strong>${title}</strong><br>Order #${r.order_number} · ${escape(ORDER_TYPE_LABELS[r.type])}${where}<br>Served by ${escape(r.staff_name)}<br>${time}</p>
+  <p class="centre"><strong>${title}</strong><br>Order #${r.order_label} · ${escape(ORDER_TYPE_LABELS[r.type])}${where}<br>Served by ${escape(r.staff_name)}<br>${time}</p>
   <hr>${lines}<hr>${money}${paid ? `<hr>${paid}` : ""}
   ${r.balance && r.kind === "bill" ? `<hr>${row("Still to pay", formatCedis(r.balance), true)}` : ""}
   ${r.footer ? `<hr><p class="centre">${escape(r.footer)}</p>` : ""}

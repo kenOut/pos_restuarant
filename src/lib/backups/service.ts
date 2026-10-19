@@ -4,6 +4,7 @@ import path from "node:path";
 import { eq } from "drizzle-orm";
 import { appMigrationCount, branchDbFor, closeBranchDb, controlDbFor, filesFor, getDataDir, isOnline, type Branch, type Tenant } from "@/db";
 import { branches } from "@/db/control-schema";
+import { newEpoch, setMeta } from "@/lib/sync/engine";
 import { restaurants, sessions, type StaffRole } from "@/db/schema";
 import {
   checkRestorable,
@@ -167,6 +168,10 @@ export async function restoreBackup(tenant: Tenant, branch: Branch, actor: { rol
   restoreFiles({ backupsDir: files.backupsDir, id, dbFile: files.dbFile, uploadsDir: files.uploadsDir });
   const db = branchDbFor(tenant, branch); // reopens, applying any newer migrations
   db.delete(sessions).run(); // everyone signs in again
+  // The data went back in time: sync with ENYO Online sends and takes everything again,
+  // and a new epoch tells the other side to do the same.
+  setMeta(db.$client, "synced_with", "");
+  newEpoch(db.$client);
   // Head office lists the branch under the name in the restored data.
   const restored = db.select({ name: restaurants.name }).from(restaurants).where(eq(restaurants.id, branch.id)).get();
   if (restored) controlDbFor(tenant).update(branches).set({ name: restored.name }).where(eq(branches.id, branch.id)).run();

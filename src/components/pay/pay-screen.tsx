@@ -9,7 +9,7 @@ import { MOMO_NETWORKS, PAYMENT_METHODS, type MomoNetwork, type PaymentMethod } 
 import { parseCedis, percentOf } from "@/lib/payments/bill";
 import { METHOD_HINTS, METHOD_LABELS, NETWORK_LABELS } from "@/lib/payments/labels";
 import type { PaymentView } from "@/lib/payments/service";
-import { ORDER_TYPE_LABELS } from "@/lib/orders/shared";
+import { ORDER_TYPE_LABELS, formatOrderNumber } from "@/lib/orders/shared";
 import { formatAmount, formatCedis } from "@/lib/money";
 import { BillPanel } from "./bill-panel";
 import { DiscountDialog } from "./discount-dialog";
@@ -132,7 +132,7 @@ export function PayScreen({ view, cashierName, canApproveDiscounts, approvers }:
         </Link>
         <div className="min-w-0 flex-1">
           <h1 className="font-display text-2xl font-bold">
-            Payment · #{order.number}
+            Payment · #{formatOrderNumber(order.number)}
           </h1>
           <p className="truncate text-sm text-cream-muted">{where}</p>
         </div>
@@ -152,7 +152,7 @@ export function PayScreen({ view, cashierName, canApproveDiscounts, approvers }:
                 </span>
                 <h2 className="mt-4 font-display text-3xl font-bold">Paid in full</h2>
                 <p className="mt-1 text-cream-muted">
-                  Order #{order.number} · {formatCedis(bill.total)}
+                  Order #{formatOrderNumber(order.number)} · {formatCedis(bill.total)}
                 </p>
                 {lastChange ? (
                   <p className="mt-5 text-lg">

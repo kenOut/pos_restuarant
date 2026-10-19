@@ -3,7 +3,7 @@
 import { forwardRef } from "react";
 import { Icon } from "@/components/icons";
 import type { OrderSummary } from "@/lib/orders/service";
-import { ORDER_TYPE_LABELS } from "@/lib/orders/shared";
+import { ORDER_TYPE_LABELS, formatOrderNumber } from "@/lib/orders/shared";
 import { formatCedis } from "@/lib/money";
 
 type Props = {
@@ -72,7 +72,7 @@ export const OpenOrdersDialog = forwardRef<HTMLDialogElement, Props>(function Op
                   >
                     <span className="min-w-0 flex-1">
                       <span className="flex flex-wrap items-center gap-2">
-                        <span className="font-display text-lg font-bold">#{o.number}</span>
+                        <span className="font-display text-lg font-bold">#{formatOrderNumber(o.number)}</span>
                         <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${STATUS[statusOf(o)].className}`}>
                           {STATUS[statusOf(o)].label}
                         </span>

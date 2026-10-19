@@ -38,6 +38,7 @@ import {
   type TableStatus,
 } from "@/lib/tables/shared";
 import { useNow } from "@/lib/use-now";
+import { formatOrderNumber } from "@/lib/orders/shared";
 
 type Props = { floor: Floor; servers: Server[]; canArrange: boolean };
 
@@ -87,7 +88,7 @@ function TableContent({ table, now, card = false, at }: { table: FloorTable; now
       <span className={card ? "block text-xs font-semibold" : "sr-only"}>{TABLE_STATUS_LABELS[table.status]}</span>
       {table.order ? (
         <>
-          <span className="sr-only">, order #{table.order.number}</span>
+          <span className="sr-only">, order #{formatOrderNumber(table.order.number)}</span>
           <Sep />
           <span className="block text-xs">
             {guests} guest{guests === 1 ? "" : "s"}
@@ -431,7 +432,7 @@ function TablePanel({
           {order ? (
             <>
               <dl className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-xl border border-ink-700 bg-ink-850 p-3 text-sm">
-                <div><dt className="text-cream-muted">Order</dt><dd className="font-semibold">#{order.number}</dd></div>
+                <div><dt className="text-cream-muted">Order</dt><dd className="font-semibold">#{formatOrderNumber(order.number)}</dd></div>
                 <div><dt className="text-cream-muted">Server</dt><dd className="font-semibold">{order.staffName}</dd></div>
                 <div><dt className="text-cream-muted">Guests</dt><dd className="font-semibold">{order.guests ?? "–"}</dd></div>
                 <div><dt className="text-cream-muted">Seated</dt><dd className="font-semibold tabular-nums">{seatedFor(order.openedAt, now)}</dd></div>

@@ -29,6 +29,7 @@ import { MenuGrid } from "./menu-grid";
 import { OpenOrdersDialog } from "./open-orders";
 import { TicketPanel } from "./ticket-panel";
 import { Toast } from "./toast";
+import { formatOrderNumber } from "@/lib/orders/shared";
 
 type Props = {
   menu: MenuEntry[];
@@ -82,7 +83,7 @@ export function OrderScreen({ menu, openOrders, tables = [], staffName, initialO
   useEffect(() => {
     const onReady = (e: Event) => {
       const { orderNumber, label } = (e as CustomEvent<ReadyDetail>).detail;
-      setToast({ id: Date.now(), message: `Order #${orderNumber} is ready · ${label}` });
+      setToast({ id: Date.now(), message: `Order #${formatOrderNumber(orderNumber)} is ready · ${label}` });
     };
     window.addEventListener(READY_EVENT, onReady);
     return () => window.removeEventListener(READY_EVENT, onReady);
@@ -113,8 +114,8 @@ export function OrderScreen({ menu, openOrders, tables = [], staffName, initialO
       setToast({
         id: Date.now(),
         message: send
-          ? `Order #${number} sent to the kitchen · ${result.sentItems} item${result.sentItems === 1 ? "" : "s"}`
-          : `Order #${number} held`,
+          ? `Order #${formatOrderNumber(number)} sent to the kitchen · ${result.sentItems} item${result.sentItems === 1 ? "" : "s"}`
+          : `Order #${formatOrderNumber(number)} held`,
       });
     });
 
@@ -175,7 +176,7 @@ export function OrderScreen({ menu, openOrders, tables = [], staffName, initialO
       <section aria-labelledby="order-title" inert={ticketOpen} className="flex min-w-0 flex-1 flex-col">
         <header className="flex flex-wrap items-center gap-2 border-b border-ink-700 p-3 sm:gap-3 sm:p-4">
           <h1 id="order-title" className="font-display text-2xl font-bold whitespace-nowrap">
-            {draft.number ? `Order #${draft.number}` : "New order"}
+            {draft.number ? `Order #${formatOrderNumber(draft.number)}` : "New order"}
           </h1>
           <div className="order-last flex h-12 w-full items-center gap-2 rounded-xl border border-ink-600 bg-ink-900 px-3 focus-within:border-amber sm:order-none sm:w-auto sm:flex-1">
             <Icon name="search" className="size-4 shrink-0 text-cream-faint" />

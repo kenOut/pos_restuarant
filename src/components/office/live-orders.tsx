@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useBranchPath } from "@/components/tenancy/branch-context";
 import { formatCedis } from "@/lib/money";
 import type { KitchenProgress, OrderSummary } from "@/lib/orders/service";
-import { ORDER_TYPE_LABELS } from "@/lib/orders/shared";
+import { ORDER_TYPE_LABELS, formatOrderNumber } from "@/lib/orders/shared";
 import { useNow } from "@/lib/use-now";
 
 const KITCHEN: Record<KitchenProgress, { label: string; className: string }> = {
@@ -39,7 +39,7 @@ export function LiveOrders({ orders }: { orders: OrderSummary[] }) {
             >
               <div className="flex items-start justify-between gap-2">
                 <p className="font-display text-lg font-bold">
-                  #{o.number}
+                  #{formatOrderNumber(o.number)}
                   <span className="ml-2 text-sm font-normal text-cream-muted">
                     {o.tableLabel ? `Table ${o.tableLabel}` : o.customerName ?? ORDER_TYPE_LABELS[o.type]}
                   </span>

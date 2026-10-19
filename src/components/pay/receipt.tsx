@@ -1,7 +1,7 @@
 import { describePayment } from "@/lib/payments/labels";
 import { taxLinesForDisplay } from "@/lib/payments/bill";
 import type { PaymentView } from "@/lib/payments/service";
-import { ORDER_TYPE_LABELS } from "@/lib/orders/shared";
+import { ORDER_TYPE_LABELS, formatOrderNumber } from "@/lib/orders/shared";
 import { formatAmount, formatCedis } from "@/lib/money";
 
 // Ghana is on GMT all year; fixed so the receipt reads the same whatever the server's clock zone.
@@ -26,7 +26,7 @@ export function Receipt({ view, logoSrc }: { view: PaymentView; logoSrc: string 
         <p className="text-[15px] font-bold">{view.restaurantName}</p>
         <p className="mt-1 font-bold">{paid ? "RECEIPT" : "BILL"}</p>
         <p>
-          Order #{order.number} · {ORDER_TYPE_LABELS[order.type]}
+          Order #{formatOrderNumber(order.number)} · {ORDER_TYPE_LABELS[order.type]}
           {order.tableLabel ? ` · Table ${order.tableLabel}` : ""}
         </p>
         {order.customerName ? <p>{order.customerName}</p> : null}

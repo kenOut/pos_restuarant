@@ -5,7 +5,7 @@ import { ORDER_STATUSES, ORDER_TYPES } from "@/db/enums";
 import { formatCedis } from "@/lib/money";
 import { STATUS_LABELS, listOrders, listStaffForFilters, orderFiltersFrom, resolveRange } from "@/lib/office/reports";
 import { requireOffice } from "@/lib/office/session";
-import { ORDER_TYPE_LABELS } from "@/lib/orders/shared";
+import { ORDER_TYPE_LABELS, formatOrderNumber } from "@/lib/orders/shared";
 import { branchPath, getDb } from "@/lib/tenancy/context";
 
 export const metadata: Metadata = { title: "Orders" };
@@ -102,7 +102,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                 <tr key={o.id}>
                   <td>
                     <Link href={`${path}/${o.id}`} className="inline-flex min-h-11 min-w-11 items-center font-semibold text-amber underline-offset-4 hover:underline">
-                      #{o.number}
+                      #{formatOrderNumber(o.number)}
                     </Link>
                   </td>
                   <td className="tabular-nums">{time.format(o.openedAt)}</td>

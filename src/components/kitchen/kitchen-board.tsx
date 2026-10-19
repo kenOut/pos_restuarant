@@ -6,7 +6,7 @@ import { Icon } from "@/components/icons";
 import { STATIONS, type Station } from "@/db/enums";
 import type { KitchenBoard, KitchenTicket } from "@/lib/kitchen/service";
 import { ticketDestination } from "@/lib/kitchen/shared";
-import { ORDER_TYPE_LABELS } from "@/lib/orders/shared";
+import { ORDER_TYPE_LABELS, formatOrderNumber } from "@/lib/orders/shared";
 import { gsap, useGSAP, prefersReducedMotion } from "@/lib/gsap";
 import { useNow } from "@/lib/use-now";
 
@@ -62,7 +62,7 @@ export function KitchenBoardView({ board }: { board: KitchenBoard }) {
       ids.forEach((id) => seen.current!.add(id));
       if (arrived.length === 0) return;
       const latest = board.active.find((t) => t.id === arrived[arrived.length - 1])!;
-      setAnnouncement(`New ticket: order ${latest.orderNumber}, ${ticketDestination(latest)}`);
+      setAnnouncement(`New ticket: order ${formatOrderNumber(latest.orderNumber)}, ${ticketDestination(latest)}`);
       if (prefersReducedMotion()) return;
       const cards = arrived.map((id) => gridRef.current?.querySelector(`[data-ticket="${id}"]`)).filter(Boolean) as Element[];
       gsap.fromTo(cards, { y: -16, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: 0.4, ease: "power3.out", stagger: 0.08 });
@@ -174,7 +174,7 @@ export function KitchenBoardView({ board }: { board: KitchenBoard }) {
                 title="Tap when it's been taken out"
                 className="flex min-h-11 shrink-0 items-center gap-2 rounded-lg border border-eating/60 bg-eating-soft px-3 text-sm font-semibold hover:bg-eating/30"
               >
-                #{r.orderNumber} · {where}
+                #{formatOrderNumber(r.orderNumber)} · {where}
                 {now !== null ? <span className="font-normal text-cream-muted">{Math.max(0, Math.floor((now - r.readyAt) / 60_000))}m</span> : null}
                 <Icon name="check" className="size-4 text-eating-text" />
                 <span className="sr-only">, mark as served</span>
@@ -205,7 +205,7 @@ function TicketCard({ ticket: t, now, pending, onStart, onBump }: CardProps) {
     <li data-ticket={t.id} className="flex flex-col overflow-hidden rounded-xl border border-ink-700 bg-ink-850">
       <div className={`px-3.5 py-2.5 transition-colors duration-500 motion-reduce:transition-none ${HEADER_STYLES[level]}`}>
         <div className="flex items-baseline justify-between font-display text-xl font-bold">
-          <span>#{t.orderNumber}</span>
+          <span>#{formatOrderNumber(t.orderNumber)}</span>
           <time className="tabular-nums" aria-label={now !== null ? `${elapsed(t.sentAt, now)} since sent` : undefined}>
             {now !== null ? elapsed(t.sentAt, now) : "--:--"}
           </time>
@@ -240,7 +240,7 @@ function TicketCard({ ticket: t, now, pending, onStart, onBump }: CardProps) {
           type="button"
           onClick={(e) => onBump(e.currentTarget.closest("[data-ticket]"))}
           disabled={pending}
-          aria-label={`Bump order ${t.orderNumber}: ready`}
+          aria-label={`Bump order ${formatOrderNumber(t.orderNumber)}: ready`}
           className="min-h-12 rounded-xl bg-amber font-semibold text-amber-ink enabled:hover:bg-[#f5b552] enabled:active:scale-[0.97] disabled:opacity-50"
         >
           Bump

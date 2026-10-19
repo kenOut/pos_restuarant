@@ -20,6 +20,7 @@ import {
   type PaymentMethod,
 } from "@/db/schema";
 import { listOpenOrders, type OrderSummary } from "@/lib/orders/service";
+import { ONLINE_SERIES } from "@/lib/orders/shared";
 import { getPaymentView } from "@/lib/payments/service";
 
 import { addDays, dayKey, type Range } from "./periods";
@@ -129,8 +130,8 @@ function orderConditions(restaurantId: string, f: OrderFilters) {
     f.type ? eq(orders.type, f.type) : undefined,
     f.staffId ? eq(orders.staffId, f.staffId) : undefined,
     search
-      ? /^\d+$/.test(search)
-        ? eq(orders.number, Number(search))
+      ? /^w?\d+$/i.test(search)
+        ? eq(orders.number, /^w/i.test(search) ? ONLINE_SERIES + Number(search.slice(1)) : Number(search))
         : sql`(lower(${orders.tableLabel}) like ${`%${search.toLowerCase()}%`} or lower(${orders.customerName}) like ${`%${search.toLowerCase()}%`})`
       : undefined
   );
