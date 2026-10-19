@@ -1,0 +1,1 @@
+ALTER TABLE `sync_peers` ADD `addresses` text;

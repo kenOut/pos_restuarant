@@ -2,7 +2,7 @@
 // (drizzle/0008_sync.sql, drizzle-control/0001_sync.sql). Keep the lists in step with
 // src/lib/sync/tables.ts; a unit test checks they match. New synced tables need a new
 // migration with their triggers rather than editing these files once released.
-const fs = require("fs");
+import fs from "node:fs";
 const BRANCH = ["restaurants", "staff", "menu_categories", "menu_items", "floor_areas", "dining_tables", "orders", "kitchen_tickets", "order_lines", "payments"];
 const CONTROL = ["organisation", "branches", "hq_users"];
 

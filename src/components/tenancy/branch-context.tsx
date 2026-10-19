@@ -17,3 +17,8 @@ export function useBranchPath(): (path: string) => string {
   const { base } = useContext(BranchContext);
   return useCallback((path: string) => `${base}${path}`, [base]);
 }
+
+/** This branch's link prefix ("" or "/b/<slug>") and address name. */
+export function useBranch(): { base: string; slug: string } {
+  return useContext(BranchContext);
+}

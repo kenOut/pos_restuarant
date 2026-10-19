@@ -90,6 +90,8 @@ export const syncPeers = sqliteTable("sync_peers", {
   nodeId: text("node_id"),
   createdAt: createdAt(),
   lastContactAt: integer("last_contact_at", { mode: "timestamp_ms" }),
+  /** Each branch's address on the restaurant's network, as its tills use it ({ branchId: url }), for switching back. */
+  addresses: text("addresses", { mode: "json" }).$type<Record<string, string>>(),
 });
 
 export type SyncLink = typeof syncLink.$inferSelect;

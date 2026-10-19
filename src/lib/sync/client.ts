@@ -167,7 +167,8 @@ async function cycle(tenant: Tenant): Promise<{ ok: true } | { ok: false; error:
   const node = nodeId(control.$client);
   const setStatus = (values: Partial<SyncLink>) => control.update(syncLink).set(values).run();
   try {
-    const answer = await call(link, "hello", { node, setUp: !needsSetup(control) });
+    const addresses = Object.fromEntries(scopes(tenant).slice(1).flatMap((s) => (meta(s.db, "local_address") ? [[s.name, meta(s.db, "local_address")]] : [])));
+    const answer = await call(link, "hello", { node, setUp: !needsSetup(control), addresses });
     const epochs = (answer.epochs ?? {}) as Record<string, unknown>;
     await syncScope(link, node, scopes(tenant)[0], epochs.control);
     // Branches may have just arrived from ENYO Online.

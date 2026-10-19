@@ -87,6 +87,8 @@ A restaurant's main computer and its business on ENYO Online keep **the same dat
 - **Order numbers:** orders taken on ENYO Online are numbered **W1001, W1002…** so they never clash with the restaurant's 1001, 1002…
 - **When both sides changed the same thing while apart:** the later change wins (by a clock that only moves forward, so a computer with the wrong time can't make old changes win); new items added to an order on both sides are all kept; a paid order stays paid; if both opened an order on the same table, the one opened first keeps the table and the other keeps its table name but leaves the floor plan; an order paid on both sides is flagged. Flags are kept for the conflicts screen (Phase 13d).
 - **Not synced:** sign-ins (each side has its own), API keys and their websites, the backup copy folder, and backups themselves (each side backs up its own data). After restoring a backup on either side, both send and collect everything again by themselves.
+- **When the main computer goes down,** every till, phone and kitchen screen that was using it shows *"The main computer is offline"* after 30 seconds, with **Continue online**: the same screen on ENYO Online (it needs the internet, e.g. a phone's mobile data). Staff sign in there with their usual PIN and carry on; orders taken online are numbered W… Unsaved changes on the screen at that moment stay on the device.
+- **When it's back,** screens on ENYO Online that came from it show *"The main computer is back"* with **Switch back** (or **Stay online**), which returns to the same screen on the main computer. Everything done online has already reached it. ENYO Online learns each branch's address on the restaurant's network from the main computer itself, so this works whichever device is used.
 - **One restaurant computer per business.** A new key (ENYO Online's head office › Restaurant computer › Make a new key) disconnects the old one, for moving to a new computer.
 
 ## Data API
@@ -176,6 +178,7 @@ Put these in `.env.local` (ignored by git) or set them in the environment:
 | `ENYO_DATA_DIR`          | `data`         | Folder for `control.db`, `branches/` and head office backups.              |
 | `DATABASE_PATH`          | none           | Older single-restaurant setting: its database becomes the first branch, and its folder is the data folder unless `ENYO_DATA_DIR` is set. |
 | `ENYO_MODE`              | local          | `online` runs ENYO Online: many client businesses on one server. |
+| `ENYO_FAILOVER_AFTER_MS` | 30000          | How long the main computer must be unreachable before tills offer ENYO Online. |
 | `ENYO_SYNC`              | on             | `0` stops this computer syncing with ENYO Online (the link is kept). |
 | `ENYO_ADMIN_SETUP_CODE`  | none           | ENYO Online: the code that creates the first seller account at `/admin`. |
 | `ENYO_BASE_DOMAIN`       | none           | e.g. `yourdomain.com`: turns on branch subdomains and `hq.` for head office. |
@@ -194,7 +197,7 @@ npm test            # unit tests (Vitest): taxes, sign-in, roles, orders, tables
 npm run test:e2e    # browser tests (builds first)
 ```
 
-`npm run test:e2e` builds the app, then runs each suite against its own production server and a fresh throwaway data folder: `landing`, `login`, `shell`, `order`, `kitchen`, `payments`, `admin`, `setup` (on an empty install), `backups`, `tables` (floor plan statuses live on two tills, the table panel, reservations, one order per table, arrange mode with drag and keys), `sync` (a restaurant computer and ENYO Online on their own servers: pairing, trading on both, each side offline in turn, then identical data on both), `online` (ENYO Online: seller setup, adding clients, one-time setup links, two clients with the same branch name kept apart, suspending), `office` (back office sign-in, live tracking, lists, CSV, API keys and every API request, key checks, paging, the request limit and browser access), `branches` (head office, separate branch data and sessions, the `/b/` fallback, adding, renaming and closing branches) and `a11y` (axe-core WCAG 2.2 AA on every screen, plus a 44 × 44 px minimum for till controls). Run some suites only with `npm run test:e2e -- order kitchen`, or skip the build with `-- --no-build`. Screenshots go to `e2e/output/`. Set `CHROME_PATH` if Chrome or Edge isn't in the usual place.
+`npm run test:e2e` builds the app, then runs each suite against its own production server and a fresh throwaway data folder: `landing`, `login`, `shell`, `order`, `kitchen`, `payments`, `admin`, `setup` (on an empty install), `backups`, `tables` (floor plan statuses live on two tills, the table panel, reservations, one order per table, arrange mode with drag and keys), `sync` (a restaurant computer and ENYO Online on their own servers: pairing, trading on both, each side offline in turn, a till and kitchen screen switching to ENYO Online and back, then identical data on both), `online` (ENYO Online: seller setup, adding clients, one-time setup links, two clients with the same branch name kept apart, suspending), `office` (back office sign-in, live tracking, lists, CSV, API keys and every API request, key checks, paging, the request limit and browser access), `branches` (head office, separate branch data and sessions, the `/b/` fallback, adding, renaming and closing branches) and `a11y` (axe-core WCAG 2.2 AA on every screen, plus a 44 × 44 px minimum for till controls). Run some suites only with `npm run test:e2e -- order kitchen`, or skip the build with `-- --no-build`. Screenshots go to `e2e/output/`. Set `CHROME_PATH` if Chrome or Edge isn't in the usual place.
 
 ## Project layout
 
@@ -239,7 +242,7 @@ npx drizzle-kit generate --name describe-the-change
 
 For the ENYO Online platform database (`src/db/platform-schema.ts`) use `npx drizzle-kit generate --config drizzle.platform.config.ts --name describe-the-change`. For the head office database (`src/db/control-schema.ts`) use `npx drizzle-kit generate --config drizzle.control.config.ts --name describe-the-change`.
 
-Tables kept in step with ENYO Online are listed in `src/lib/sync/tables.ts`; each needs change-recording triggers (see `scripts/gen-sync-triggers.cjs`), and a unit test checks every listed table has them.
+Tables kept in step with ENYO Online are listed in `src/lib/sync/tables.ts`; each needs change-recording triggers (see `scripts/gen-sync-triggers.mjs`), and a unit test checks every listed table has them.
 
 Migrations are applied automatically when the app starts (and, in development, as soon as they appear).
 

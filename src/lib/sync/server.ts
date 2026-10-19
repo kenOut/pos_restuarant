@@ -64,7 +64,7 @@ const fail = (status: number, error: string): SyncResponse => ({ status, body: {
  * "download": the restaurant computer is new, take everything. "continue":
  * already in step.
  */
-export function hello(tenant: Tenant, control: ControlDb, peer: SyncPeer, body: { node?: unknown; setUp?: unknown }): SyncResponse {
+export function hello(tenant: Tenant, control: ControlDb, peer: SyncPeer, body: { node?: unknown; setUp?: unknown; addresses?: unknown }): SyncResponse {
   const node = typeof body?.node === "string" && /^[0-9a-f]{32}$/.test(body.node) ? body.node : null;
   if (!node) return fail(400, "Missing the restaurant computer's sync id.");
   const onlineSetUp = !needsSetup(control);
@@ -77,8 +77,20 @@ export function hello(tenant: Tenant, control: ControlDb, peer: SyncPeer, body: 
     mode = onlineSetUp ? "download" : "upload";
     control.update(syncPeers).set({ nodeId: node }).where(eq(syncPeers.id, peer.id)).run();
   }
-  control.update(syncPeers).set({ lastContactAt: new Date() }).where(eq(syncPeers.id, peer.id)).run();
   const branches = listBranches(control);
+  // Where each branch's tills reach the restaurant computer, for offering the way back.
+  const given = body.addresses && typeof body.addresses === "object" ? (body.addresses as Record<string, unknown>) : {};
+  const addresses = Object.fromEntries(
+    branches.flatMap((b) => {
+      const url = given[b.id];
+      return typeof url === "string" && url.length < 300 && /^https?:\/\/[^\s"'<>]+$/.test(url) ? [[b.id, url]] : [];
+    })
+  );
+  control
+    .update(syncPeers)
+    .set({ lastContactAt: new Date(), ...(Object.keys(addresses).length ? { addresses } : {}) })
+    .where(eq(syncPeers.id, peer.id))
+    .run();
   return {
     status: 200,
     body: {

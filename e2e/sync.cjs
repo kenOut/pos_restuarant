@@ -105,8 +105,8 @@ function snapshot(file) {
   const localDir = fs.mkdtempSync(path.join(os.tmpdir(), "enyo-sync-local-"));
   const onlineDir = fs.mkdtempSync(path.join(os.tmpdir(), "enyo-sync-online-"));
   const [localPort, onlinePort] = [await freePort(), await freePort()];
-  const LOCAL = { ENYO_DATA_DIR: localDir, DATABASE_PATH: "", ENYO_MODE: "", ENYO_SEED_DEMO: "1", ENYO_BASE_DOMAIN: "", ENYO_BACKUPS: "0", ENYO_SYNC_INTERVAL_MS: "1000" };
-  const ONLINE = { ENYO_DATA_DIR: onlineDir, DATABASE_PATH: "", ENYO_MODE: "online", ENYO_SEED_DEMO: "0", ENYO_BASE_DOMAIN: "", ENYO_BACKUPS: "0", ENYO_ADMIN_SETUP_CODE: CODE };
+  const LOCAL = { ENYO_DATA_DIR: localDir, DATABASE_PATH: "", ENYO_MODE: "", ENYO_SEED_DEMO: "1", ENYO_BASE_DOMAIN: "", ENYO_BACKUPS: "0", ENYO_SYNC_INTERVAL_MS: "1000", ENYO_FAILOVER_AFTER_MS: "4000" };
+  const ONLINE = { ENYO_DATA_DIR: onlineDir, DATABASE_PATH: "", ENYO_MODE: "online", ENYO_SEED_DEMO: "0", ENYO_BASE_DOMAIN: "", ENYO_BACKUPS: "0", ENYO_ADMIN_SETUP_CODE: CODE, ENYO_FAILOVER_POLL_MS: "1500" };
   let local = await startServer(localPort, LOCAL);
   let online = await startServer(onlinePort, ONLINE);
   const browser = await launch();
@@ -202,11 +202,32 @@ function snapshot(file) {
     );
     check("…and the order shows online", !!(await until(() => openOrdersInclude(tillOnline, onlineOsu, b))));
 
-    // --- The restaurant computer down: ENYO Online carries on, then the restaurant catches up
+    // --- The restaurant computer down: its tills and kitchen screen switch to ENYO Online, then back
+    await tillHere.goto(`${localOsu}/order`, { waitUntil: "load" });
+    const kitchen = await device(browser);
+    await pin(kitchen, localOsu, "Yaw D.", "6666");
     local.stop();
-    const w2 = await takeOrder(tillOnline, onlineOsu, "Waakye special", { pay: true });
+    const offer = await until(async () => {
+      const t = await tillHere.$eval("[role=alert]", (a) => a.innerText).catch(() => "");
+      return /main computer is offline/.test(t) ? t : false;
+    }, 20000);
+    check("a till offers ENYO Online when the main computer stops answering", !!offer, offer);
+    const kitchenLink = await until(() => kitchen.$eval("[role=alert] a", (a) => a.getAttribute("href")).catch(() => null), 20000);
+    check("…so does the kitchen screen, for its own screen online", kitchenLink === `${onlineOsu}/kitchen`, kitchenLink);
+    await Promise.all([tillHere.waitForNavigation({ waitUntil: "load" }).catch(() => {}), click(tillHere, "Continue online")]);
+    check("Continue online opens the same branch on ENYO Online", tillHere.url().startsWith(onlineOsu), tillHere.url());
+    await pin(tillHere, onlineOsu, "Efua M.", "4444");
+    const w2 = await takeOrder(tillHere, onlineOsu, "Waakye special", { pay: true });
     check("ENYO Online keeps trading while the restaurant computer is off", w2 === "W1002", w2);
+    await tillHere.goto(`${onlineOsu}/order`, { waitUntil: "load" });
     local = await startServer(localPort, LOCAL);
+    const back = await until(async () => {
+      const t = await tillHere.$eval("[role=status]", (s) => s.innerText).catch(() => "");
+      return /main computer is back/.test(t) ? t : false;
+    }, 40000);
+    check("ENYO Online says when the main computer is back", !!back, back);
+    await Promise.all([tillHere.waitForNavigation({ waitUntil: "load" }).catch(() => {}), click(tillHere, "Switch back")]);
+    check("Switch back returns to the same screen on the main computer, still signed in", tillHere.url() === `${localOsu}/order`, tillHere.url());
     const localDb = path.join(localDir, "branches", "chez-accra", "enyo.db");
     check(
       "when the restaurant computer is back, it collects what was done online",

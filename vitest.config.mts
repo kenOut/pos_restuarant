@@ -8,5 +8,7 @@ export default defineConfig({
   test: {
     include: ["src/**/*.test.ts"],
     environment: "node",
+    // Tests that hash PINs (Argon2) for whole demo restaurants take a few seconds on a busy computer.
+    testTimeout: 30_000,
   },
 });
