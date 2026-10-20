@@ -1,5 +1,5 @@
 // Writes the sync bookkeeping and change-recording triggers for both databases
-// (drizzle/0008_sync.sql, drizzle-control/0001_sync.sql). Keep the lists in step with
+// (drizzle/0008_sync.sql, drizzle-control/0001_sync.sql, and the upgrades 0009 / 0004). Keep the lists in step with
 // src/lib/sync/tables.ts; a unit test checks they match. New synced tables need a new
 // migration with their triggers rather than editing these files once released.
 import fs from "node:fs";
@@ -65,5 +65,42 @@ const conflicts = `CREATE TABLE "sync_conflicts" (
 for (const [file, tables] of [["drizzle/0008_sync.sql", BRANCH], ["drizzle-control/0001_sync.sql", CONTROL]]) {
   const parts = [header, ...(tables === BRANCH ? [conflicts] : []), ...tables.flatMap(triggers)];
   fs.writeFileSync(file, parts.join("\n--> statement-breakpoint\n") + "\n");
+}
+
+// ---------- Upgrade 2 (drizzle/0009_sync_changelog.sql, drizzle-control/0004_sync_changelog.sql)
+// Each row also remembers the version its latest change was made from (base_hlc), so a
+// change made without seeing the other side's latest version (a real clash) can be told
+// apart from a normal edit. sync_changelog keeps what such a clash overwrote or discarded.
+const upgrade = `ALTER TABLE \`sync_rows\` ADD \`base_hlc\` integer DEFAULT 0 NOT NULL;
+--> statement-breakpoint
+CREATE TABLE "sync_changelog" (
+	"id" text PRIMARY KEY NOT NULL,
+	"tbl" text NOT NULL,
+	"row_id" text NOT NULL,
+	"kept" text NOT NULL,
+	"kept_row" text,
+	"lost_row" text,
+	"created_at" integer DEFAULT (unixepoch('subsec') * 1000) NOT NULL
+);
+--> statement-breakpoint
+CREATE INDEX "sync_changelog_created_idx" ON "sync_changelog" ("created_at");`;
+
+function triggersV2(t) {
+  const out = [];
+  for (const [event, ref, op, suffix] of [["INSERT", "NEW", "u", "ai"], ["UPDATE", "NEW", "u", "au"], ["DELETE", "OLD", "d", "ad"]]) {
+    out.push(`DROP TRIGGER IF EXISTS \`sync_${t}_${suffix}\`;`);
+    out.push(`CREATE TRIGGER \`sync_${t}_${suffix}\` AFTER ${event} ON \`${t}\` WHEN ${recording} BEGIN
+	${tick}
+	INSERT INTO sync_outbox (tbl, row_id, op, hlc) VALUES ('${t}', ${ref}.id, '${op}', ${clock});
+	INSERT INTO sync_rows (tbl, row_id, hlc, origin, base_hlc) VALUES ('${t}', ${ref}.id, ${clock}, ${node}, 0)
+		ON CONFLICT (tbl, row_id) DO UPDATE SET base_hlc = sync_rows.hlc, hlc = excluded.hlc, origin = excluded.origin;
+END;`);
+  }
+  return out;
+}
+
+for (const [file, tables] of [["drizzle/0009_sync_changelog.sql", BRANCH], ["drizzle-control/0004_sync_changelog.sql", CONTROL]]) {
+  const extra = tables === BRANCH ? [`ALTER TABLE "sync_conflicts" ADD "resolved_by" text;`] : [];
+  fs.writeFileSync(file, [upgrade, ...extra, ...tables.flatMap(triggersV2)].join("\n--> statement-breakpoint\n") + "\n");
 }
 console.log("ok");

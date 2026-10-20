@@ -192,6 +192,17 @@ function snapshot(file) {
         return waiting > 0 && (await text(hq)).includes("Can't reach ENYO Online");
       }))
     );
+    // While apart, both sides change the same dish's price (ENYO Online's later): a real clash.
+    const onlineBusiness = fs.readdirSync(path.join(onlineDir, "businesses"))[0];
+    const edit = (file, price) => {
+      const db = new Database(file);
+      db.pragma("busy_timeout = 5000");
+      db.prepare("UPDATE menu_items SET price = ? WHERE id = 'kelewele'").run(price);
+      db.close();
+    };
+    edit(path.join(localDir, "branches", "chez-accra", "enyo.db"), 9000);
+    await sleep(300);
+    edit(path.join(onlineDir, "businesses", onlineBusiness, "branches", "chez-accra", "enyo.db"), 9500);
     online = await startServer(onlinePort, ONLINE);
     check(
       "when ENYO Online is back, everything is sent",
@@ -201,6 +212,36 @@ function snapshot(file) {
       }, 40000))
     );
     check("…and the order shows online", !!(await until(() => openOrdersInclude(tillOnline, onlineOsu, b))));
+
+    // --- The back office's Sync page: the clash in the change log, and flags to deal with
+    const manager = await device(browser);
+    await pin(manager, `${localOsu}/office`, "Kwame B.", "2222");
+    {
+      // A flag as sync would raise it, to check it can be dealt with.
+      const db = new Database(path.join(localDir, "branches", "chez-accra", "enyo.db"));
+      db.pragma("busy_timeout = 5000");
+      db.prepare("INSERT INTO sync_conflicts (id, kind, order_id, detail) VALUES ('flag-1', 'overpaid', NULL, 'Order #1003 was paid on both sides: GH₵ 10.00 more than the bill was taken.')").run();
+      db.close();
+    }
+    await manager.goto(`${localOsu}/office`, { waitUntil: "load" });
+    check("the dashboard says when sync flagged something", (await text(manager)).includes("Sync flagged 1 thing that needs a look."));
+    const nav = await manager.$$eval("nav[aria-label='Back office'] a", (a) => a.filter((x) => x.getClientRects().length).map((x) => x.textContent.trim()));
+    check("Sync is in the back office menu once connected", nav.includes("Sync"), nav.join(","));
+    await manager.goto(`${localOsu}/office/sync`, { waitUntil: "load" });
+    const logRow = await until(async () => {
+      await manager.reload({ waitUntil: "load" });
+      return manager.$eval("[data-change='Dish: Kelewele']", (tr) => tr.innerText.replace(/\s+/g, " ")).catch(() => null);
+    });
+    check("the change log shows what the clash replaced", !!logRow && logRow.includes("The change made on ENYO Online") && logRow.includes("Price: GH₵ 95.00 (replaced GH₵ 90.00)"), logRow);
+    check("…and what to do about the flag", (await text(manager)).includes("Give the guest back what was taken twice"));
+    await manager.addScriptTag({ path: require.resolve("axe-core/axe.min.js") });
+    const violations = await manager.evaluate(async () => (await window.axe.run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"] } })).violations.map((v) => v.id));
+    check("Sync page: no WCAG 2.2 AA violations", violations.length === 0, violations.join(", "));
+    await click(manager, "Mark as dealt with");
+    check(
+      "a flag can be marked as dealt with, with who did it",
+      !!(await until(async () => !(await manager.$("[data-conflict]")) && (await text(manager)).includes("Dealt with (1)")))
+    );
 
     // --- The restaurant computer down: its tills and kitchen screen switch to ENYO Online, then back
     await tillHere.goto(`${localOsu}/order`, { waitUntil: "load" });

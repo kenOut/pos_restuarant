@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { LiveOrders } from "@/components/office/live-orders";
+import { openConflictCount } from "@/lib/sync/review";
 import { OfficeHeader, PeriodPicker, Stat } from "@/components/office/parts";
 import { formatCedis } from "@/lib/money";
 import { getSummary, listActiveOrders, resolveRange } from "@/lib/office/reports";
@@ -16,12 +18,23 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const range = resolveRange(q.period, q.from, q.to);
   const s = getSummary(db, person.restaurantId, range);
   const active = listActiveOrders(db, person.restaurantId);
+  const flagged = openConflictCount(db.$client);
   const most = Math.max(1, ...s.byMethod.map((m) => m.amount));
 
   return (
     <div>
       <OfficeHeader title="Dashboard" description={range.label} actions={<PeriodPicker path={await branchPath("/office")} range={range} />} />
       <div className="space-y-8 p-3 sm:p-4">
+        {flagged ? (
+          <p role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-alert bg-alert-soft px-4 py-3">
+            <span>
+              Sync flagged {flagged} thing{flagged === 1 ? "" : "s"} that need{flagged === 1 ? "s" : ""} a look.
+            </span>
+            <Link href={await branchPath("/office/sync")} className="inline-flex min-h-11 items-center rounded-xl bg-white px-4 font-semibold text-ink-950">
+              Open Sync
+            </Link>
+          </p>
+        ) : null}
         <section aria-labelledby="totals">
           <h2 id="totals" className="sr-only">
             Totals

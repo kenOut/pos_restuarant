@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createApiKey, revokeApiKey, setAllowedOrigins, type ApiKeyInfo } from "@/lib/api/keys";
 import { endOfficeSession, requireOffice } from "@/lib/office/session";
+import { resolveConflict } from "@/lib/sync/review";
 import { branchPath, getDb } from "@/lib/tenancy/context";
 
 type Result = { ok: true } | { ok: false; error: string };
@@ -24,6 +25,14 @@ export async function createApiKeyAction(name: string): Promise<{ ok: true; key:
 export async function revokeApiKeyAction(id: string): Promise<Result> {
   const person = await requireOffice();
   const result = revokeApiKey(await getDb(), person, id);
+  if (result.ok) revalidatePath("/b/[branch]", "layout");
+  return result;
+}
+
+/** Sync flagged something and a manager has dealt with it. */
+export async function resolveConflictAction(id: string): Promise<Result> {
+  const person = await requireOffice();
+  const result = resolveConflict((await getDb()).$client, id, person.name);
   if (result.ok) revalidatePath("/b/[branch]", "layout");
   return result;
 }

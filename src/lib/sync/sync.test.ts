@@ -189,6 +189,47 @@ describe("both sides trading while apart", () => {
   });
 });
 
+describe("the change log", () => {
+  const log = (db: Db) => db.$client.prepare("SELECT tbl, row_id, kept, kept_row, lost_row FROM sync_changelog ORDER BY created_at").all() as {
+    tbl: string;
+    row_id: string;
+    kept: string;
+    kept_row: string | null;
+    lost_row: string | null;
+  }[];
+
+  it("keeps what a real clash overwrote, on both sides", async () => {
+    restaurant.$client.prepare("UPDATE menu_items SET price = 9000 WHERE id = 'kelewele'").run();
+    await new Promise((r) => setTimeout(r, 200));
+    online.$client.prepare("UPDATE menu_items SET price = 9500 WHERE id = 'kelewele'").run();
+    exchange();
+    const here = log(restaurant);
+    expect(here).toHaveLength(1);
+    expect(here[0]).toMatchObject({ tbl: "menu_items", row_id: "kelewele", kept: "other side" });
+    expect(JSON.parse(here[0].lost_row!).price).toBe(9000);
+    expect(JSON.parse(here[0].kept_row!).price).toBe(9500);
+    const there = log(online);
+    expect(there).toHaveLength(1);
+    expect(there[0]).toMatchObject({ kept: "this side" });
+    expect(JSON.parse(there[0].lost_row!).price).toBe(9000);
+  });
+
+  it("stays empty for normal trading and for edits that saw the other side's latest", () => {
+    const o = order(restaurant, [["jollof-chicken", 1]]);
+    asOnline(() => order(online, [["sobolo", 1]]));
+    exchange();
+    payAll(restaurant, o.id);
+    exchange();
+    // Online changes the dish after hearing the restaurant's version: an ordinary edit, not a clash.
+    restaurant.$client.prepare("UPDATE menu_items SET price = 9100 WHERE id = 'kelewele'").run();
+    exchange();
+    online.$client.prepare("UPDATE menu_items SET price = 9200 WHERE id = 'kelewele'").run();
+    exchange();
+    expect(log(restaurant)).toEqual([]);
+    expect(log(online)).toEqual([]);
+  });
+});
+
 describe("safety", () => {
   it("doesn't let a computer whose clock is behind lose edits made after it heard from the other side", () => {
     // ENYO Online's clock is an hour ahead of the restaurant's.

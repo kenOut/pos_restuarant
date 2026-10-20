@@ -7,13 +7,14 @@
 // change with the higher value wins (ties go to the higher node id), so both
 // sides end up with the same rows whichever order the changes arrive in, and a
 // computer whose clock is wrong can't make old changes overwrite new ones.
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import type Database from "better-sqlite3";
 import type { SyncedTable } from "./tables";
 
 type Client = Database.Database;
 export type Row = Record<string, string | number | null>;
-export type Change = { tbl: string; id: string; op: "u" | "d"; hlc: number; origin: string; row: Row | null };
+/** base: the version of the row this change was made from (0 for a new row). */
+export type Change = { tbl: string; id: string; op: "u" | "d"; hlc: number; origin: string; base?: number; row: Row | null };
 export type Conflict = { kind: string; orderId: string | null; detail: string };
 
 export type Hooks = {
@@ -28,6 +29,9 @@ export type Hooks = {
   /** A unique rule refused the row (e.g. a table that already has an order open): a fixed row to write, or null to keep it out. */
   onUnique?: (tbl: string, incoming: Row) => { row: Row; conflict?: Conflict } | null;
 };
+
+/** How long the change log keeps what a clash overwrote. */
+export const CHANGELOG_DAYS = 180;
 
 // ---------- Bookkeeping
 
@@ -83,9 +87,9 @@ export function collectChanges(db: Client, tables: SyncedTable[], afterSeq: numb
   const changes = page.flatMap((e) => {
     const t = known.get(e.tbl);
     if (!t) return [];
-    const stamp = db.prepare("SELECT hlc, origin FROM sync_rows WHERE tbl = ? AND row_id = ?").get(e.tbl, e.row_id) as { hlc: number; origin: string } | undefined;
+    const stamp = db.prepare("SELECT hlc, origin, base_hlc FROM sync_rows WHERE tbl = ? AND row_id = ?").get(e.tbl, e.row_id) as { hlc: number; origin: string; base_hlc: number } | undefined;
     const row = readRow(db, t, e.row_id);
-    return [{ tbl: e.tbl, id: e.row_id, op: row ? "u" : "d", hlc: stamp?.hlc ?? 0, origin: stamp?.origin ?? nodeId(db), row } as Change];
+    return [{ tbl: e.tbl, id: e.row_id, op: row ? "u" : "d", hlc: stamp?.hlc ?? 0, origin: stamp?.origin ?? nodeId(db), base: stamp?.base_hlc ?? 0, row } as Change];
   });
   return { changes, lastSeq: page.at(-1)?.seq ?? afterSeq, more: entries.length > limit };
 }
@@ -104,10 +108,10 @@ export function collectAll(db: Client, tables: SyncedTable[], cursor: FullCursor
     const cols = columns(db, t);
     const want = limit - changes.length;
     const rows = db
-      .prepare(`SELECT t.rowid AS "__rowid", ${cols.map((c) => `t.${quote(c)}`).join(", ")}, s.hlc AS "__hlc", s.origin AS "__origin" FROM ${quote(t.table)} t LEFT JOIN sync_rows s ON s.tbl = ? AND s.row_id = t.id WHERE t.rowid > ? ORDER BY t.rowid LIMIT ?`)
-      .all(t.table, after, want) as (Row & { __rowid: number; __hlc: number | null; __origin: string | null })[];
-    for (const { __rowid, __hlc, __origin, ...row } of rows) {
-      changes.push({ tbl: t.table, id: String(row.id), op: "u", hlc: __hlc ?? 0, origin: __origin ?? nodeId(db), row });
+      .prepare(`SELECT t.rowid AS "__rowid", ${cols.map((c) => `t.${quote(c)}`).join(", ")}, s.hlc AS "__hlc", s.origin AS "__origin", s.base_hlc AS "__base" FROM ${quote(t.table)} t LEFT JOIN sync_rows s ON s.tbl = ? AND s.row_id = t.id WHERE t.rowid > ? ORDER BY t.rowid LIMIT ?`)
+      .all(t.table, after, want) as (Row & { __rowid: number; __hlc: number | null; __origin: string | null; __base: number | null })[];
+    for (const { __rowid, __hlc, __origin, __base, ...row } of rows) {
+      changes.push({ tbl: t.table, id: String(row.id), op: "u", hlc: __hlc ?? 0, origin: __origin ?? nodeId(db), base: __base ?? 0, row });
       after = __rowid;
     }
     // A short page means this table is done.
@@ -133,7 +137,20 @@ export function pruneOutbox(db: Client, uptoSeq: number): void {
 export function resend(db: Client, tbl: string, id: string): void {
   const hlc = tick(db);
   db.prepare("INSERT INTO sync_outbox (tbl, row_id, op, hlc) VALUES (?, ?, 'u', ?)").run(tbl, id, hlc);
-  db.prepare("INSERT INTO sync_rows (tbl, row_id, hlc, origin) VALUES (?, ?, ?, ?) ON CONFLICT (tbl, row_id) DO UPDATE SET hlc = excluded.hlc, origin = excluded.origin").run(tbl, id, hlc, nodeId(db));
+  db.prepare("INSERT INTO sync_rows (tbl, row_id, hlc, origin, base_hlc) VALUES (?, ?, ?, ?, 0) ON CONFLICT (tbl, row_id) DO UPDATE SET base_hlc = sync_rows.hlc, hlc = excluded.hlc, origin = excluded.origin").run(tbl, id, hlc, nodeId(db));
+}
+
+/** Notes a clash: both sides changed the same row without seeing the other's change. */
+function logClash(db: Client, tbl: string, id: string, kept: "this side" | "other side", keptRow: Row | null, lostRow: Row | null): void {
+  if (JSON.stringify(keptRow) === JSON.stringify(lostRow)) return; // the same change both ways: nothing lost
+  db.prepare("INSERT INTO sync_changelog (id, tbl, row_id, kept, kept_row, lost_row) VALUES (?, ?, ?, ?, ?, ?)").run(
+    randomUUID(),
+    tbl,
+    id,
+    kept,
+    keptRow ? JSON.stringify(keptRow) : null,
+    lostRow ? JSON.stringify(lostRow) : null
+  );
 }
 
 // ---------- Applying the other side's changes
@@ -166,10 +183,15 @@ export function applyChanges(db: Client, tables: SyncedTable[], changes: Change[
           highest = Math.max(highest, change.hlc);
           const stamp = db.prepare("SELECT hlc, origin FROM sync_rows WHERE tbl = ? AND row_id = ?").get(t.table, change.id) as { hlc: number; origin: string } | undefined;
           const wins = !stamp || change.hlc > stamp.hlc || (change.hlc === stamp.hlc && change.origin > stamp.origin);
+          // A clash: the other side changed this row without having seen this side's latest version of it.
+          const clash = !!stamp && stamp.origin !== change.origin && stamp.hlc !== (Number(change.base) || 0) && stamp.hlc !== change.hlc;
+          const shared = (row: Row | null) => (row ? Object.fromEntries(columns(db, t).filter((c) => c in row).map((c) => [c, row[c]])) : null);
           if (!wins) {
+            if (clash) logClash(db, t.table, change.id, "this side", readRow(db, t, change.id), change.op === "d" ? null : shared(change.row));
             skipped++;
             continue;
           }
+          if (clash) logClash(db, t.table, change.id, "other side", change.op === "d" ? null : shared(change.row), readRow(db, t, change.id));
 
           if (change.op === "d") {
             db.prepare(`DELETE FROM ${quote(t.table)} WHERE id = ?`).run(change.id);
@@ -200,11 +222,12 @@ export function applyChanges(db: Client, tables: SyncedTable[], changes: Change[
               if (fixed.conflict) conflicts.push(fixed.conflict);
             }
           }
-          db.prepare("INSERT INTO sync_rows (tbl, row_id, hlc, origin) VALUES (?, ?, ?, ?) ON CONFLICT (tbl, row_id) DO UPDATE SET hlc = excluded.hlc, origin = excluded.origin").run(t.table, change.id, change.hlc, change.origin);
+          db.prepare("INSERT INTO sync_rows (tbl, row_id, hlc, origin, base_hlc) VALUES (?, ?, ?, ?, ?) ON CONFLICT (tbl, row_id) DO UPDATE SET hlc = excluded.hlc, origin = excluded.origin, base_hlc = excluded.base_hlc").run(t.table, change.id, change.hlc, change.origin, Number(change.base) || 0);
           touched.push(change);
           applied++;
         }
         tick(db, highest);
+        db.prepare("DELETE FROM sync_changelog WHERE created_at < ?").run(Date.now() - CHANGELOG_DAYS * 86_400_000);
         setMeta(db, "applying", "0");
         // This side's version wins after all: record it as a new change, so it goes back.
         for (const [tbl, id] of resends) resend(db, tbl, id);
